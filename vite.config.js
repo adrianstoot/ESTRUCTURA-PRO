@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  base: '/COMETV-Structural/',
+  base: './',
   build: {
     outDir: 'dist',
   },
@@ -11,3 +11,4 @@ export default defineConfig({
     port: 5199,
   }
 })
+

@@ -1,9 +1,17 @@
 import * as THREE from 'three';
 
+const SNAP_COLORS = {
+  vertex: '#22d98f',
+  midpoint: '#ffb020',
+  edge: '#ffd166',
+  face: '#ff6b55',
+  grid: '#4f8cff',
+};
+
 /**
- * SnapManager — Professional CAD-grade snapping system.
- * Renders a crosshair cursor (like ArchiCAD) instead of a cube.
- * Supports: vertex, edge midpoint, face center, grid, orthogonal constraint.
+ * SnapManager - Screen-space CAD snapping with a fixed 10 px cursor.
+ * Supports feature vertices/endpoints, edge midpoints, nearest edge points,
+ * faces, grid points, and optional orthogonal constraints.
  */
 export class SnapManager {
   constructor(sceneManager, gridManager) {
@@ -13,76 +21,76 @@ export class SnapManager {
     this.orthoLock = false;
     this.snapToVertex = true;
     this.snapToEdge = true;
+    this.snapToMidpoint = true;
     this.snapToFace = true;
     this.snapToGrid = true;
-    this.gridSnap = 0.25; // 25cm grid snap resolution
+    this.gridSnap = 0.25;
+    this.snapRadiusPx = 9;
+    this.markerSizePx = 10;
 
-    // Crosshair marker group
+    // Kept as a compatibility handle for callers that referenced markerGroup.
+    // The visible marker is DOM-based so it stays discreet at every zoom.
     this.markerGroup = new THREE.Group();
     this.markerGroup.name = 'SnapCrosshair';
     this.markerGroup.visible = false;
-
-    // Small dot at center
-    const dotGeo = new THREE.SphereGeometry(0.015, 8, 8);
-    this.dotMat = new THREE.MeshBasicMaterial({ color: 0x00ff88, depthTest: false });
-    this.dot = new THREE.Mesh(dotGeo, this.dotMat);
-    this.dot.renderOrder = 999;
-    this.markerGroup.add(this.dot);
-
-    // Crosshair lines (X, Y, Z)
-    const lineLen = 0.12;
-    this.crosshairLines = [];
-    const dirs = [
-      { dir: new THREE.Vector3(1, 0, 0), color: 0xff4444 },
-      { dir: new THREE.Vector3(0, 1, 0), color: 0x44ff44 },
-      { dir: new THREE.Vector3(0, 0, 1), color: 0x4488ff },
-    ];
-    dirs.forEach(({ dir, color }) => {
-      const points = [
-        dir.clone().multiplyScalar(-lineLen),
-        dir.clone().multiplyScalar(lineLen),
-      ];
-      const geo = new THREE.BufferGeometry().setFromPoints(points);
-      const mat = new THREE.LineBasicMaterial({
-        color,
-        depthTest: false,
-        transparent: true,
-        opacity: 0.9,
-      });
-      const line = new THREE.Line(geo, mat);
-      line.renderOrder = 999;
-      this.crosshairLines.push(line);
-      this.markerGroup.add(line);
-    });
-
-    // Ring indicator
-    const ringGeo = new THREE.RingGeometry(0.04, 0.055, 24);
-    this.ringMat = new THREE.MeshBasicMaterial({
-      color: 0x00ff88,
-      side: THREE.DoubleSide,
-      depthTest: false,
-      transparent: true,
-      opacity: 0.6,
-    });
-    this.ring = new THREE.Mesh(ringGeo, this.ringMat);
-    this.ring.renderOrder = 998;
-    this.markerGroup.add(this.ring);
-
     this.sceneManager.scene.add(this.markerGroup);
 
     this.lastSnap = null;
+    this.lastSnapInfo = null;
     this.snapType = null;
+    this._referencePoint = null;
     this._raycaster = new THREE.Raycaster();
     this._mouse = new THREE.Vector2();
-    this._referencePoint = null; // For orthogonal constraining
+    this._pointerPx = new THREE.Vector2();
+    this._featureCache = new WeakMap();
+    this._ownerCache = new WeakMap();
+    this._lastEventKey = '';
+    this._rect = null;
+    this._screenMarker = this._createScreenMarker();
+    this._onPointerLeave = () => this._clearSnap();
+    this.sceneManager.renderer?.domElement?.addEventListener(
+      'pointerleave', this._onPointerLeave);
   }
 
-  setEnabled(val) {
-    this.enabled = val;
-    if (!val) {
-      this.markerGroup.visible = false;
-      this.lastSnap = null;
+  _createScreenMarker() {
+    if (typeof document === 'undefined') return null;
+    const parent = this.sceneManager.renderer?.domElement?.parentElement || this.sceneManager.container;
+    if (!parent) return null;
+
+    const marker = document.createElement('div');
+    marker.className = 'snap-cursor-marker';
+    marker.setAttribute('aria-hidden', 'true');
+    Object.assign(marker.style, {
+      position: 'absolute',
+      display: 'none',
+      width: `${this.markerSizePx}px`,
+      height: `${this.markerSizePx}px`,
+      transform: 'translate(-50%, -50%)',
+      pointerEvents: 'none',
+      zIndex: '1001',
+      color: SNAP_COLORS.grid,
+      filter: 'drop-shadow(0 0 2px rgba(0,0,0,.9))',
+    });
+    marker.innerHTML = `
+      <svg viewBox="0 0 12 12" width="100%" height="100%" fill="none" aria-hidden="true">
+        <circle cx="6" cy="6" r="3.25" stroke="currentColor" stroke-width="1"/>
+        <path d="M6 0.75v2M6 9.25v2M0.75 6h2M9.25 6h2" stroke="currentColor" stroke-width="1" stroke-linecap="square"/>
+        <circle cx="6" cy="6" r="0.8" fill="currentColor"/>
+      </svg>`;
+    parent.appendChild(marker);
+    return marker;
+  }
+
+  setEnabled(value) {
+    this.enabled = !!value;
+    if (!this.enabled) {
+      this._referencePoint = null;
+      this._clearSnap(false);
+      if (typeof document !== 'undefined') {
+        document.getElementById('snap-indicator')?.classList.add('hidden');
+      }
     }
+    this._emitSnapChange(true);
   }
 
   setReferencePoint(point) {
@@ -91,181 +99,351 @@ export class SnapManager {
 
   update(event) {
     if (!this.enabled) return null;
+    const canvas = this.sceneManager.renderer.domElement;
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) {
+      this._clearSnap();
+      return null;
+    }
 
-    const rect = this.sceneManager.renderer.domElement.getBoundingClientRect();
-    this._mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    this._mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    this._rect = rect;
+    this._mouse.set(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    this._pointerPx.set(event.clientX - rect.left, event.clientY - rect.top);
+    this.sceneManager.camera.updateMatrixWorld(true);
+    this.sceneManager.scene.updateMatrixWorld(true);
     this._raycaster.setFromCamera(this._mouse, this.sceneManager.camera);
 
-    let snapPoint = null;
-
-    // Priority 1: Vertex snap (closest vertex within screen threshold)
-    if (this.snapToVertex) {
-      snapPoint = this._findVertexSnap();
-      if (snapPoint) {
-        this._setMarker(snapPoint, 0x00ff88, 'vertex');
-        return this._applyOrthoConstraint(snapPoint);
-      }
+    const featureSnaps = this._findFeatureSnaps();
+    if (this.snapToVertex && featureSnaps.vertex) return this._commitSnap(featureSnaps.vertex);
+    if (this.snapToEdge && this.snapToMidpoint && featureSnaps.midpoint) {
+      return this._commitSnap(featureSnaps.midpoint);
     }
+    if (this.snapToEdge && featureSnaps.edge) return this._commitSnap(featureSnaps.edge);
 
-    // Priority 2: Edge midpoint snap
-    if (this.snapToEdge) {
-      snapPoint = this._findEdgeMidpointSnap();
-      if (snapPoint) {
-        this._setMarker(snapPoint, 0xffaa00, 'edge');
-        return this._applyOrthoConstraint(snapPoint);
-      }
-    }
-
-    // Priority 3: Face snap on objects
     if (this.snapToFace) {
-      const selectables = this.sceneManager.getSelectableObjects();
-      const hits = this._raycaster.intersectObjects(selectables, true);
-      if (hits.length > 0) {
-        const pt = hits[0].point;
-        this._setMarker(pt, 0xff6644, 'face');
-        return this._applyOrthoConstraint(pt);
+      const hits = this._raycaster.intersectObjects(this.sceneManager.getSelectableObjects(), true);
+      const hit = hits.find((item) => this._isWorldVisible(item.object));
+      if (hit) {
+        const bimObject = this._findBIMObjectFromMesh(hit.object);
+        const normal = hit.face?.normal
+          ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld)
+          : null;
+        return this._commitSnap({
+          point: hit.point.clone(),
+          type: 'face',
+          feature: 'face',
+          bimObject,
+          normal,
+          distancePx: 0,
+        });
       }
     }
 
-    // Priority 4: Grid snap
     if (this.snapToGrid) {
-      const ground = this.gridManager.getGroundPlane();
+      const ground = this.gridManager?.getGroundPlane?.();
       if (ground) {
-        const groundHits = this._raycaster.intersectObject(ground);
-        if (groundHits.length > 0) {
-          const pt = groundHits[0].point;
-          pt.x = Math.round(pt.x / this.gridSnap) * this.gridSnap;
-          pt.y = 0;
-          pt.z = Math.round(pt.z / this.gridSnap) * this.gridSnap;
-          this._setMarker(pt, 0x4488ff, 'grid');
-          return this._applyOrthoConstraint(pt);
+        const hits = this._raycaster.intersectObject(ground, false);
+        if (hits.length) {
+          const point = hits[0].point.clone();
+          point.x = Math.round(point.x / this.gridSnap) * this.gridSnap;
+          point.y = 0;
+          point.z = Math.round(point.z / this.gridSnap) * this.gridSnap;
+          return this._commitSnap({
+            point,
+            type: 'grid',
+            feature: 'grid',
+            bimObject: null,
+            normal: new THREE.Vector3(0, 1, 0),
+            distancePx: 0,
+          });
         }
       }
     }
 
-    this.markerGroup.visible = false;
-    this.lastSnap = null;
-    this.snapType = null;
+    this._clearSnap();
     return null;
   }
 
-  _findVertexSnap() {
+  _findFeatureSnaps() {
+    const best = { vertex: null, midpoint: null, edge: null };
     const selectables = this.sceneManager.getSelectableObjects();
-    let closest = null;
-    let minScreenDist = 0.035; // screen-space threshold (tight like pro CAD)
 
-    const cam = this.sceneManager.camera;
-    const tempV = new THREE.Vector3();
+    for (const mesh of selectables) {
+      if (!mesh.geometry || !this._isWorldVisible(mesh)) continue;
+      const features = this._getGeometryFeatures(mesh.geometry);
+      if (!features.edges.length) continue;
+      const bimObject = this._findBIMObjectFromMesh(mesh);
 
-    for (const obj of selectables) {
-      if (!obj.geometry || !obj.geometry.attributes.position) continue;
-      const pos = obj.geometry.attributes.position;
-      const matWorld = obj.matrixWorld;
-
-      // Sample vertices (limit for performance)
-      const step = Math.max(1, Math.floor(pos.count / 200));
-      for (let i = 0; i < pos.count; i += step) {
-        tempV.set(pos.getX(i), pos.getY(i), pos.getZ(i));
-        tempV.applyMatrix4(matWorld);
-
-        const projected = tempV.clone().project(cam);
-        if (projected.z > 1) continue; // behind camera
-
-        const dx = projected.x - this._mouse.x;
-        const dy = projected.y - this._mouse.y;
-        const d = Math.sqrt(dx * dx + dy * dy);
-
-        if (d < minScreenDist) {
-          minScreenDist = d;
-          closest = tempV.clone();
-        }
-      }
-    }
-    return closest;
-  }
-
-  _findEdgeMidpointSnap() {
-    const selectables = this.sceneManager.getSelectableObjects();
-    let closest = null;
-    let minScreenDist = 0.04;
-    const cam = this.sceneManager.camera;
-    const tempA = new THREE.Vector3();
-    const tempB = new THREE.Vector3();
-    const tempMid = new THREE.Vector3();
-
-    for (const obj of selectables) {
-      if (!obj.geometry) continue;
-      const index = obj.geometry.index;
-      const pos = obj.geometry.attributes.position;
-      if (!pos) continue;
-      const matWorld = obj.matrixWorld;
-
-      if (index) {
-        const step = Math.max(1, Math.floor(index.count / 100));
-        for (let i = 0; i < index.count - 1; i += step) {
-          const iA = index.getX(i);
-          const iB = index.getX(i + 1);
-          tempA.set(pos.getX(iA), pos.getY(iA), pos.getZ(iA)).applyMatrix4(matWorld);
-          tempB.set(pos.getX(iB), pos.getY(iB), pos.getZ(iB)).applyMatrix4(matWorld);
-          tempMid.addVectors(tempA, tempB).multiplyScalar(0.5);
-
-          const projected = tempMid.clone().project(cam);
-          if (projected.z > 1) continue;
-          const dx = projected.x - this._mouse.x;
-          const dy = projected.y - this._mouse.y;
-          const d = Math.sqrt(dx * dx + dy * dy);
-          if (d < minScreenDist) {
-            minScreenDist = d;
-            closest = tempMid.clone();
+      if (this.snapToVertex) {
+        for (const localPoint of features.vertices) {
+          const worldPoint = localPoint.clone().applyMatrix4(mesh.matrixWorld);
+          const candidate = this._pointCandidate(worldPoint, 'vertex', 'endpoint', bimObject);
+          if (candidate && (!best.vertex || candidate.distancePx < best.vertex.distancePx)) {
+            best.vertex = candidate;
           }
         }
       }
+
+      if (!this.snapToEdge) continue;
+      for (const edge of features.edges) {
+        const worldA = edge[0].clone().applyMatrix4(mesh.matrixWorld);
+        const worldB = edge[1].clone().applyMatrix4(mesh.matrixWorld);
+
+        if (this.snapToMidpoint) {
+          const midpoint = new THREE.Vector3().addVectors(worldA, worldB).multiplyScalar(0.5);
+          const candidate = this._pointCandidate(midpoint, 'midpoint', 'midpoint', bimObject);
+          if (candidate && (!best.midpoint || candidate.distancePx < best.midpoint.distancePx)) {
+            best.midpoint = candidate;
+          }
+        }
+
+        const candidate = this._edgeCandidate(worldA, worldB, bimObject);
+        if (candidate && (!best.edge || candidate.distancePx < best.edge.distancePx)) {
+          best.edge = candidate;
+        }
+      }
     }
-    return closest;
+    return best;
   }
 
-  _applyOrthoConstraint(point) {
-    if (!point) return null;
+  /** Build real feature edges for indexed and non-indexed BufferGeometry. */
+  _getGeometryFeatures(geometry) {
+    const cached = this._featureCache.get(geometry);
+    if (cached) return cached;
 
-    if (this.orthoLock && this._referencePoint) {
-      const ref = this._referencePoint;
-      const dx = Math.abs(point.x - ref.x);
-      const dy = Math.abs(point.y - ref.y);
-      const dz = Math.abs(point.z - ref.z);
+    const edgeGeometry = new THREE.EdgesGeometry(geometry, 20);
+    const positions = edgeGeometry.attributes.position;
+    const edges = [];
+    const vertexMap = new Map();
+    const addVertex = (point) => {
+      const key = `${Math.round(point.x * 1e6)}:${Math.round(point.y * 1e6)}:${Math.round(point.z * 1e6)}`;
+      if (!vertexMap.has(key)) vertexMap.set(key, point.clone());
+    };
 
-      // Lock to the dominant axis
-      if (dx >= dy && dx >= dz) {
-        point.y = ref.y;
-        point.z = ref.z;
-      } else if (dy >= dx && dy >= dz) {
-        point.x = ref.x;
-        point.z = ref.z;
-      } else {
-        point.x = ref.x;
-        point.y = ref.y;
+    if (positions) {
+      for (let index = 0; index + 1 < positions.count; index += 2) {
+        const a = new THREE.Vector3().fromBufferAttribute(positions, index);
+        const b = new THREE.Vector3().fromBufferAttribute(positions, index + 1);
+        if (a.distanceToSquared(b) < 1e-16) continue;
+        edges.push([a, b]);
+        addVertex(a);
+        addVertex(b);
       }
-
-      this._setMarker(point, this.dotMat.color.getHex(), this.snapType);
     }
+    edgeGeometry.dispose();
+
+    const result = { edges, vertices: Array.from(vertexMap.values()) };
+    this._featureCache.set(geometry, result);
+    return result;
+  }
+
+  _pointCandidate(worldPoint, type, feature, bimObject) {
+    const screen = this._projectToScreen(worldPoint);
+    if (!screen) return null;
+    const distancePx = Math.hypot(
+      screen.x - this._pointerPx.x,
+      screen.y - this._pointerPx.y,
+    );
+    if (distancePx > this.snapRadiusPx) return null;
+    return { point: worldPoint.clone(), type, feature, bimObject, normal: null, distancePx };
+  }
+
+  _edgeCandidate(worldA, worldB, bimObject) {
+    const screenA = this._projectToScreen(worldA);
+    const screenB = this._projectToScreen(worldB);
+    if (!screenA || !screenB) return null;
+
+    const dx = screenB.x - screenA.x;
+    const dy = screenB.y - screenA.y;
+    const lengthSq = dx * dx + dy * dy;
+    if (lengthSq < 1e-8) return null;
+    const t = THREE.MathUtils.clamp(
+      ((this._pointerPx.x - screenA.x) * dx + (this._pointerPx.y - screenA.y) * dy) / lengthSq,
+      0,
+      1,
+    );
+    const px = screenA.x + dx * t;
+    const py = screenA.y + dy * t;
+    const distancePx = Math.hypot(px - this._pointerPx.x, py - this._pointerPx.y);
+    if (distancePx > this.snapRadiusPx) return null;
+
+    // Reproject the interpolated world point once. Perspective projection is
+    // not linear, so this second check prevents distant false positives.
+    const point = worldA.clone().lerp(worldB, t);
+    const projected = this._projectToScreen(point);
+    if (!projected) return null;
+    const verifiedDistance = Math.hypot(
+      projected.x - this._pointerPx.x,
+      projected.y - this._pointerPx.y,
+    );
+    if (verifiedDistance > this.snapRadiusPx) return null;
+    return {
+      point,
+      type: 'edge',
+      feature: 'nearest-edge',
+      bimObject,
+      normal: null,
+      distancePx: verifiedDistance,
+    };
+  }
+
+  _projectToScreen(worldPoint) {
+    if (!this._rect) return null;
+    const projected = worldPoint.clone().project(this.sceneManager.camera);
+    if (!Number.isFinite(projected.x) || !Number.isFinite(projected.y) || projected.z < -1 || projected.z > 1) {
+      return null;
+    }
+    return {
+      x: (projected.x + 1) * 0.5 * this._rect.width,
+      y: (1 - projected.y) * 0.5 * this._rect.height,
+      z: projected.z,
+    };
+  }
+
+  _commitSnap(candidate) {
+    const point = this._applyOrthoConstraint(candidate.point);
+    const bimObject = candidate.bimObject || null;
+    const binding = bimObject ? this._makeBinding(bimObject, point) : null;
 
     this.lastSnap = point.clone();
-    return this.lastSnap;
+    this.snapType = candidate.type;
+    this.lastSnapInfo = {
+      point: point.clone(),
+      type: candidate.type,
+      feature: candidate.feature || candidate.type,
+      bimObject,
+      objectId: bimObject?.id || null,
+      binding,
+      normal: candidate.normal?.clone() || null,
+    };
+    this._showScreenMarker(point, candidate.type);
+    this._emitSnapChange();
+    return this.lastSnap.clone();
   }
 
-  _setMarker(position, color, type) {
-    this.markerGroup.position.copy(position);
-    this.markerGroup.visible = true;
-    this.dotMat.color.setHex(color);
-    this.ringMat.color.setHex(color);
-    this.snapType = type;
-    this.lastSnap = position.clone();
+  _applyOrthoConstraint(sourcePoint) {
+    const point = sourcePoint.clone();
+    if (!this.orthoLock || !this._referencePoint) return point;
 
-    // Orient ring to face camera
-    this.ring.lookAt(this.sceneManager.camera.position);
+    const ref = this._referencePoint;
+    const dx = Math.abs(point.x - ref.x);
+    const dy = Math.abs(point.y - ref.y);
+    const dz = Math.abs(point.z - ref.z);
+    if (dx >= dy && dx >= dz) {
+      point.y = ref.y;
+      point.z = ref.z;
+    } else if (dy >= dx && dy >= dz) {
+      point.x = ref.x;
+      point.z = ref.z;
+    } else {
+      point.x = ref.x;
+      point.y = ref.y;
+    }
+    return point;
+  }
+
+  _makeBinding(bimObject, worldPoint) {
+    if (!bimObject?.id || !bimObject.mesh) return null;
+    bimObject.mesh.updateWorldMatrix(true, true);
+    return {
+      objectId: bimObject.id,
+      localPoint: bimObject.mesh.worldToLocal(worldPoint.clone()).toArray(),
+    };
+  }
+
+  _findBIMObjectFromMesh(mesh) {
+    const cached = this._ownerCache.get(mesh);
+    if (cached && this.sceneManager.objects.includes(cached)) return cached;
+    let target = mesh;
+    while (target && !target.userData?.bimId) target = target.parent;
+    const id = target?.userData?.bimId;
+    const owner = id ? this.sceneManager.objects.find((item) => item.id === id) || null : null;
+    if (owner) this._ownerCache.set(mesh, owner);
+    return owner;
+  }
+
+  _isWorldVisible(object) {
+    let current = object;
+    while (current) {
+      if (!current.visible) return false;
+      current = current.parent;
+    }
+    return true;
+  }
+
+  _showScreenMarker(worldPoint, type) {
+    if (!this._screenMarker || !this._rect) return;
+    const projected = this._projectToScreen(worldPoint);
+    if (!projected) {
+      this._screenMarker.style.display = 'none';
+      return;
+    }
+    const parentRect = this._screenMarker.parentElement?.getBoundingClientRect?.() || { left: 0, top: 0 };
+    this._screenMarker.style.left = `${this._rect.left - parentRect.left + projected.x}px`;
+    this._screenMarker.style.top = `${this._rect.top - parentRect.top + projected.y}px`;
+    this._screenMarker.style.color = SNAP_COLORS[type] || SNAP_COLORS.grid;
+    this._screenMarker.style.display = 'block';
+    this._screenMarker.dataset.snapType = type;
+  }
+
+  _clearSnap(emit = true) {
+    this.markerGroup.visible = false;
+    if (this._screenMarker) this._screenMarker.style.display = 'none';
+    this.lastSnap = null;
+    this.lastSnapInfo = null;
+    this.snapType = null;
+    if (emit) this._emitSnapChange();
+  }
+
+  _emitSnapChange(force = false) {
+    const point = this.lastSnapInfo?.point || null;
+    const detail = {
+      enabled: this.enabled,
+      type: this.snapType,
+      feature: this.lastSnapInfo?.feature || null,
+      point: point ? point.toArray() : null,
+      objectId: this.lastSnapInfo?.objectId || null,
+      binding: this.lastSnapInfo?.binding ? {
+        objectId: this.lastSnapInfo.binding.objectId,
+        localPoint: [...this.lastSnapInfo.binding.localPoint],
+      } : null,
+    };
+    const key = JSON.stringify(detail);
+    if (!force && key === this._lastEventKey) return;
+    this._lastEventKey = key;
+
+    const target = this.sceneManager.renderer?.domElement;
+    if (target && typeof CustomEvent !== 'undefined') {
+      target.dispatchEvent(new CustomEvent('snap-change', { detail, bubbles: true }));
+    }
   }
 
   getSnapPoint() {
     return this.lastSnap;
+  }
+
+  getSnapInfo() {
+    if (!this.lastSnapInfo) return null;
+    return {
+      ...this.lastSnapInfo,
+      point: this.lastSnapInfo.point.clone(),
+      normal: this.lastSnapInfo.normal?.clone() || null,
+      binding: this.lastSnapInfo.binding ? {
+        objectId: this.lastSnapInfo.binding.objectId,
+        localPoint: [...this.lastSnapInfo.binding.localPoint],
+      } : null,
+    };
+  }
+
+  dispose() {
+    this.sceneManager.renderer?.domElement?.removeEventListener(
+      'pointerleave', this._onPointerLeave);
+    this.sceneManager.scene.remove(this.markerGroup);
+    this._screenMarker?.remove();
+    this._screenMarker = null;
+    this._clearSnap(false);
   }
 }

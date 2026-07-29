@@ -18,8 +18,17 @@ import { getProfileData, getEngineeringData, SERIES_LIST } from './ProfileCatalo
  *   orientation='beam'   → sin rotación, L en Z (horizontal)
  */
 export class Profile extends BIMElement {
-  constructor(series = 'IPE', size = '200', length = 3.0, orientation = 'beam') {
-    super('profile', { series, size, length, orientation });
+  constructor(series = 'IPE', size = '200', length = 3.0, orientation = 'beam', options = {}) {
+    super('profile', {
+      series, size, length, orientation,
+      sectionRotation: Number(options.sectionRotation ?? 0),
+      insertionPoint: options.insertionPoint || 'center',
+      role: options.role || null,
+      assemblyId: options.assemblyId || null,
+      templateInstanceId: options.templateInstanceId || null,
+      detailLevel: options.detailLevel || 'standard',
+      endTreatment: options.endTreatment || 'square-cut',
+    });
     this._computeProperties();
     this.buildMesh();
   }
@@ -41,21 +50,65 @@ export class Profile extends BIMElement {
     if (!data) return;
 
     const group = new THREE.Group();
+    const sectionGroup = new THREE.Group();
     group.name = this.designation || `${series} ${size}`;
+    sectionGroup.name = `${group.name} · sección`;
     const mat  = this.createMaterial(this.color);
     const L    = length;
 
-    if      (series === 'CHS') this._buildCHS(group, data, L, mat);
-    else if (series === 'SHS') this._buildSHS(group, data, L, mat);
-    else if (series === 'L')   this._buildAngle(group, data, L, mat);
-    else if (series === 'UPN') this._buildChannel(group, data, L, mat);
-    else                        this._buildISection(group, data, L, mat);
+    if      (series === 'CHS') this._buildCHS(sectionGroup, data, L, mat);
+    else if (series === 'SHS') this._buildSHS(sectionGroup, data, L, mat);
+    else if (series === 'L')   this._buildAngle(sectionGroup, data, L, mat);
+    else if (series === 'UPN') this._buildChannel(sectionGroup, data, L, mat);
+    else                        this._buildISection(sectionGroup, data, L, mat);
 
-    // Orientación
+    sectionGroup.traverse(child => {
+      if (!child.isMesh) return;
+      child.name ||= `${series} ${size} - solid`;
+      child.userData.componentRole = 'profile-solid';
+    });
+
+    // Roll angle is applied around the longitudinal local Z axis.
+    const roll = [0, 90, 180, 270].includes(Number(this.params.sectionRotation))
+      ? Number(this.params.sectionRotation)
+      : 0;
+    sectionGroup.rotation.z = THREE.MathUtils.degToRad(roll);
+    this._applyInsertionOffset(sectionGroup, data);
+    group.add(sectionGroup);
+
+    const startPivot = new THREE.Group();
+    startPivot.name = 'PIVOT_INICIO';
+    startPivot.position.z = -L / 2;
+    startPivot.userData = { componentRole: 'connection-pivot', end: 'start' };
+    group.add(startPivot);
+    const endPivot = new THREE.Group();
+    endPivot.name = 'PIVOT_FIN';
+    endPivot.position.z = L / 2;
+    endPivot.userData = { componentRole: 'connection-pivot', end: 'end' };
+    group.add(endPivot);
+
+    // Column preset maps longitudinal local Z to world Y.
     if (orientation === 'column') group.rotation.x = -Math.PI / 2;
 
     this.mesh = group;
     this._applyUserData();
+    this.mesh.userData.pivot = 'member-centroid';
+    this.mesh.userData.longitudinalAxis = 'local-z';
+    this.mesh.userData.connectionPivots = ['PIVOT_INICIO', 'PIVOT_FIN'];
+  }
+
+  _applyInsertionOffset(sectionGroup, data) {
+    const point = this.params.insertionPoint || 'center';
+    const h = (data.h || data.d || data.a || 0) / 1000;
+    const b = (data.b || data.d || data.b || data.a || 0) / 1000;
+    const offsets = {
+      center: [0, 0], top: [0, -h / 2], bottom: [0, h / 2],
+      left: [b / 2, 0], right: [-b / 2, 0],
+      'top-left': [b / 2, -h / 2], 'top-right': [-b / 2, -h / 2],
+      'bottom-left': [b / 2, h / 2], 'bottom-right': [-b / 2, h / 2],
+    };
+    const [dx, dy] = offsets[point] || offsets.center;
+    sectionGroup.position.set(dx, dy, 0);
   }
 
   /* ─── UTILIDADES ──────────────────────────────────────────── */
@@ -65,13 +118,15 @@ export class Profile extends BIMElement {
    * bevelSize controla el bisel de arista (pequeño pero visible).
    */
   _extrude(shape, L, mat, curveSegments = 4, bevelSize = 0.0006) {
+    const bevel = Math.min(Math.max(0, bevelSize), Math.max(0, L * 0.01));
+    const useBevel = this.params.detailLevel !== 'performance' && bevel > 0 && L > bevel * 4;
     const geo = new THREE.ExtrudeGeometry(shape, {
       depth:           L,
-      bevelEnabled:    true,
-      bevelThickness:  bevelSize,
-      bevelSize:       bevelSize,
+      bevelEnabled:    useBevel,
+      bevelThickness:  bevel,
+      bevelSize:       bevel,
       bevelOffset:     0,
-      bevelSegments:   2,
+      bevelSegments:   useBevel ? 1 : 0,
       curveSegments,
     });
     geo.translate(0, 0, -L / 2);   // centrar en Z
@@ -274,7 +329,7 @@ export class Profile extends BIMElement {
     outer.holes.push(hole);
 
     const geo = new THREE.ExtrudeGeometry(outer, {
-      depth: L, bevelEnabled: false, curveSegments: 48,
+      depth: L, bevelEnabled: false, curveSegments: this.params.detailLevel === 'performance' ? 24 : 32,
     });
     geo.translate(0, 0, -L / 2);
     const mesh = new THREE.Mesh(geo, mat);

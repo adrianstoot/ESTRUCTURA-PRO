@@ -19,6 +19,8 @@ export class BIMElement {
     this.tw = 0;
     this.tf = 0;
     this.engineeringData = null;
+    this.analysisInput = null;
+    this.analysisResults = null;
     this._isSelected = false;
     this._originalMaterials = new Map();
   }
@@ -127,7 +129,18 @@ export class BIMElement {
   }
 
   setPosition(x, y, z) {
-    if (this.mesh) this.mesh.position.set(x, y, z);
+    if (this.mesh) {
+      this.mesh.position.set(x, y, z);
+      this.mesh.updateMatrixWorld(true);
+    }
+  }
+
+  restoreId(id) {
+    if (!id) return;
+    this.id = String(id);
+    const match = /^bim_(\d+)$/.exec(this.id);
+    if (match) _idCounter = Math.max(_idCounter, Number(match[1]));
+    this._applyUserData();
   }
 
   setRotation(degX, degY, degZ) {

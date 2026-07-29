@@ -1,20 +1,60 @@
 {
-  "name": "antigravity",
+  "name": "estructuras-pro",
   "private": true,
-  "version": "0.0.0",
+  "version": "6.0.0",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:desktop": "vite build --base=./",
     "preview": "vite preview",
+    "desktop": "npm run build:desktop && electron .",
+    "dist:win": "npm run build:desktop && electron-builder --win nsis",
     "deploy": "vite build && gh-pages -d dist"
   },
   "devDependencies": {
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
     "gh-pages": "^6.3.0",
     "typescript": "~5.9.3",
     "vite": "^8.0.1"
   },
   "dependencies": {
     "three": "^0.183.2"
+  },
+  "build": {
+    "appId": "com.estructuraspro.desktop",
+    "productName": "ESTRUCTURAS PRO",
+    "artifactName": "ESTRUCTURAS-PRO-Setup-${version}.${ext}",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ESTRUCTURAS PRO",
+      "runAfterFinish": true
+    }
   }
 }

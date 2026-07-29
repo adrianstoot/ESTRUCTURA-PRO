@@ -4,6 +4,12 @@
  * All dimensions in mm. All properties computed per Eurocode standards.
  */
 
+// ─── PARTIAL SAFETY FACTORS (EN 1993-1-1 / CTE DB SE-A) ────────
+// γM0: resistencia de secciones transversales
+// γM1: resistencia frente a inestabilidad
+// γM2: resistencia de uniones / rotura en tracción
+export const GAMMA_M = { M0: 1.00, M1: 1.00, M2: 1.25 };
+
 // ─── STEEL GRADES (EN 10025 / CTE DB SE-A) ─────────────────────
 export const STEEL_GRADES = {
   'S235 JR':  { fy: 235, fu: 360, density: 7850, E: 210000, G: 81000, nu: 0.3, alpha: 12e-6 },
@@ -279,6 +285,17 @@ export function getEngineeringData(series, size, length, steelGrade = 'S275 JR')
     mass = area / 10000 * length * grade.density;
   }
 
+  // Derived plastic / torsional quantities, estimated when not stored
+  const extras = estimateAdvancedProps(series, data);
+  const elastic = estimateElasticProps(series, data);
+
+  // Radii of gyration (cm)
+  const iy = (elastic.Iy && area) ? Math.sqrt(elastic.Iy / area) : 0;
+  const iz = (elastic.Iz && area) ? Math.sqrt(elastic.Iz / area) : 0;
+
+  // Section class per EC3 (simplified: based on c/t ratios of web & flanges in pure bending)
+  const sectionClass = estimateSectionClass(series, data, grade.fy);
+
   return {
     designation: `${series} ${size}`,
     area,      // cm²
@@ -287,15 +304,150 @@ export function getEngineeringData(series, size, length, steelGrade = 'S275 JR')
     tf: data.tf || data.t || 0,
     h: data.h || data.d || data.a || 0,
     b: data.b || data.d || 0,
-    Iy: data.Iy || 0,
-    Iz: data.Iz || 0,
-    Wely: data.Wely || 0,
-    Welz: data.Welz || 0,
+    Iy: elastic.Iy,
+    Iz: elastic.Iz,
+    Wely: elastic.Wely,
+    Welz: elastic.Welz,
+    Wply: extras.Wply,
+    Wplz: extras.Wplz,
+    It:   extras.It,
+    Iw:   extras.Iw,
+    iy, iz,
+    sectionClass,
     fy: grade.fy,
     fu: grade.fu,
     E: grade.E,
+    G: grade.G,
     density: grade.density,
+    gammaM0: GAMMA_M.M0,
+    gammaM1: GAMMA_M.M1,
+    gammaM2: GAMMA_M.M2,
     linearWeight: data.G || (area / 10000 * grade.density),
     r: data.r || 0,
   };
+}
+
+// Elastic properties for catalogues that only provide dimensions and area.
+// Results use idealised sharp-corner hollow sections. Units: cm4 and cm3.
+export function estimateElasticProps(series, d) {
+  if (!d) return { Iy: 0, Iz: 0, Wely: 0, Welz: 0, estimated: true };
+  if (d.Iy && d.Iz) {
+    return { Iy: d.Iy, Iz: d.Iz, Wely: d.Wely || 0, Welz: d.Welz || 0, estimated: false };
+  }
+  if (series === 'CHS') {
+    const D = d.d;
+    const Di = Math.max(0, D - 2 * d.t);
+    const Imm4 = Math.PI * (Math.pow(D, 4) - Math.pow(Di, 4)) / 64;
+    const Wmm3 = Imm4 / (D / 2);
+    return { Iy: Imm4 / 1e4, Iz: Imm4 / 1e4, Wely: Wmm3 / 1e3, Welz: Wmm3 / 1e3, estimated: true };
+  }
+  if (series === 'SHS') {
+    const hi = Math.max(0, d.h - 2 * d.t);
+    const bi = Math.max(0, d.b - 2 * d.t);
+    const IyMm4 = (d.b * Math.pow(d.h, 3) - bi * Math.pow(hi, 3)) / 12;
+    const IzMm4 = (d.h * Math.pow(d.b, 3) - hi * Math.pow(bi, 3)) / 12;
+    return {
+      Iy: IyMm4 / 1e4,
+      Iz: IzMm4 / 1e4,
+      Wely: IyMm4 / (d.h / 2) / 1e3,
+      Welz: IzMm4 / (d.b / 2) / 1e3,
+      estimated: true,
+    };
+  }
+  return { Iy: 0, Iz: 0, Wely: 0, Welz: 0, estimated: true };
+}
+// ─── ADVANCED GEOMETRIC PROPERTIES ─────────────────────────────
+// Returns Wply, Wplz (cm³), It torsional constant (cm⁴) and Iw warping (cm⁶).
+// When catalog does not expose them we estimate from the idealized geometry.
+export function estimateAdvancedProps(series, d) {
+  if (!d) return { Wply: 0, Wplz: 0, It: 0, Iw: 0 };
+  // If catalog already has them, honor those.
+  if (d.Wply || d.Wplz || d.It || d.Iw) {
+    return { Wply: d.Wply || 0, Wplz: d.Wplz || 0, It: d.It || 0, Iw: d.Iw || 0 };
+  }
+
+  if (['IPE','HEB','HEA','IPN'].includes(series)) {
+    const h = d.h, b = d.b, tw = d.tw, tf = d.tf;
+    const hw = h - 2 * tf;          // clear web height
+    // Plastic moduli (mm³ then → cm³ /1000)
+    const Wply_mm3 = b * tf * (h - tf) + (tw * hw * hw) / 4;
+    const Wplz_mm3 = (tf * b * b) / 2 + ((h - 2*tf) * tw * tw) / 4;
+    // St. Venant torsional constant (open thin-walled): It = Σ b·t³/3
+    const It_mm4 = (2 * b * Math.pow(tf,3) + hw * Math.pow(tw,3)) / 3;
+    // Warping constant for I-section: Iw = (tf·b³·(h-tf)²)/24
+    const Iw_mm6 = (tf * Math.pow(b,3) * Math.pow(h - tf, 2)) / 24;
+    return {
+      Wply: Wply_mm3 / 1000,
+      Wplz: Wplz_mm3 / 1000,
+      It:   It_mm4 / 10000,
+      Iw:   Iw_mm6 / 1e6,
+    };
+  }
+  if (series === 'UPN') {
+    const h = d.h, b = d.b, tw = d.tw, tf = d.tf;
+    const hw = h - 2 * tf;
+    const Wply_mm3 = b * tf * (h - tf) + (tw * hw * hw) / 4;
+    const Wplz_mm3 = (tf * b * b) / 2;
+    const It_mm4 = (2 * b * Math.pow(tf,3) + hw * Math.pow(tw,3)) / 3;
+    return { Wply: Wply_mm3/1000, Wplz: Wplz_mm3/1000, It: It_mm4/10000, Iw: 0 };
+  }
+  if (series === 'CHS') {
+    const D = d.d, t = d.t;
+    const Di = D - 2 * t;
+    // Plastic modulus of hollow circle: W_pl = (D³ - Di³)/6
+    const Wpl_mm3 = (Math.pow(D,3) - Math.pow(Di,3)) / 6;
+    // Torsional constant = 2·I (for CHS, J = Ip = π/32·(D⁴-Di⁴))
+    const It_mm4 = Math.PI * (Math.pow(D,4) - Math.pow(Di,4)) / 32;
+    return { Wply: Wpl_mm3/1000, Wplz: Wpl_mm3/1000, It: It_mm4/10000, Iw: 0 };
+  }
+  if (series === 'SHS') {
+    const h = d.h, b = d.b, t = d.t;
+    // Plastic moduli of a thin-walled rect tube (approx.)
+    const Wply_mm3 = (b * h * h - (b - 2*t) * Math.pow(h - 2*t, 2)) / 4;
+    const Wplz_mm3 = (h * b * b - (h - 2*t) * Math.pow(b - 2*t, 2)) / 4;
+    // Closed section torsion: It ≈ 2·t·(h-t)²·(b-t)² / (h + b - 2t)
+    const It_mm4 = (2 * t * Math.pow(h - t, 2) * Math.pow(b - t, 2)) / Math.max(1, (h + b - 2*t));
+    return { Wply: Wply_mm3/1000, Wplz: Wplz_mm3/1000, It: It_mm4/10000, Iw: 0 };
+  }
+  if (series === 'L') {
+    const a = d.a, t = d.t;
+    const Wpl_mm3 = (a * t * t) / 2 + ((a - t) * t * (a - t)) / 2;
+    const It_mm4 = (2 * a * Math.pow(t,3)) / 3;
+    return { Wply: Wpl_mm3/1000, Wplz: Wpl_mm3/1000, It: It_mm4/10000, Iw: 0 };
+  }
+  return { Wply: 0, Wplz: 0, It: 0, Iw: 0 };
+}
+
+/**
+ * Simplified EC3 §5.5 cross-section classification under pure bending.
+ * Returns 1 | 2 | 3 | 4. Conservative — uses web/flange slendernesses only.
+ */
+export function estimateSectionClass(series, d, fy = 275) {
+  if (!d) return 3;
+  const eps = Math.sqrt(235 / fy);
+  if (['IPE','HEB','HEA','IPN'].includes(series)) {
+    const cFl = (d.b - d.tw) / 2 - (d.r || 0);
+    const cWeb = d.h - 2 * d.tf - 2 * (d.r || 0);
+    const flRatio = cFl / d.tf;
+    const webRatio = cWeb / d.tw;
+    // Outstand flange: class 1 ≤ 9ε, 2 ≤ 10ε, 3 ≤ 14ε
+    // Web in bending: class 1 ≤ 72ε, 2 ≤ 83ε, 3 ≤ 124ε
+    let cFlClass = flRatio <= 9*eps ? 1 : flRatio <= 10*eps ? 2 : flRatio <= 14*eps ? 3 : 4;
+    let cWbClass = webRatio <= 72*eps ? 1 : webRatio <= 83*eps ? 2 : webRatio <= 124*eps ? 3 : 4;
+    return Math.max(cFlClass, cWbClass);
+  }
+  if (series === 'SHS') {
+    const c = Math.max(d.h, d.b) - 3 * d.t;
+    const ratio = c / d.t;
+    return ratio <= 33*eps ? 1 : ratio <= 38*eps ? 2 : ratio <= 42*eps ? 3 : 4;
+  }
+  if (series === 'CHS') {
+    const ratio = d.d / d.t;
+    return ratio <= 50*eps*eps ? 1 : ratio <= 70*eps*eps ? 2 : ratio <= 90*eps*eps ? 3 : 4;
+  }
+  if (series === 'UPN') {
+    const webRatio = (d.h - 2*d.tf) / d.tw;
+    return webRatio <= 72*eps ? 1 : webRatio <= 83*eps ? 2 : webRatio <= 124*eps ? 3 : 4;
+  }
+  return 3;
 }

@@ -11,6 +11,7 @@ export class GridManager {
     this.scene.add(this.gridGroup);
     this.currentSize = initialSize;
     this.groundPlane = null;
+    this.visible = true;
     this.buildGrid(initialSize);
   }
 
@@ -28,12 +29,16 @@ export class GridManager {
     this.currentSize = size;
 
     // Minor grid — subtle
-    const minorGrid = new THREE.GridHelper(size, size * 2, 0x1e2230, 0x181b26);
+    const minorGrid = new THREE.GridHelper(size, size * 2, 0x778894, 0xa8b4bc);
+    minorGrid.material.transparent = true;
+    minorGrid.material.opacity = 0.34;
     minorGrid.position.y = 0;
     this.gridGroup.add(minorGrid);
 
     // Major grid — slightly more visible
-    const majorGrid = new THREE.GridHelper(size, size / 2, 0x2a3050, 0x2a3050);
+    const majorGrid = new THREE.GridHelper(size, size / 2, 0x5b7181, 0x82939e);
+    majorGrid.material.transparent = true;
+    majorGrid.material.opacity = 0.46;
     majorGrid.position.y = 0.001;
     this.gridGroup.add(majorGrid);
 
@@ -68,6 +73,11 @@ export class GridManager {
 
   setSize(size) {
     this.buildGrid(size);
+  }
+
+  setVisible(v) {
+    this.visible = v;
+    this.gridGroup.visible = !!v;
   }
 
   getGroundPlane() {

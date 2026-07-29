@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="COMETV Structural — Software profesional de diseño de estructuras metálicas. Editor 3D paramétrico con catálogo Eurocódigo.">
-  <title>COMETV Structural — Diseño de Estructuras Metálicas</title>
+  <meta name="description" content="ESTRUCTURAS PRO — Diseño, cálculo, comprobación y detallado profesional de estructuras metálicas en 3D.">
+  <title>ESTRUCTURAS PRO — Diseño y cálculo de estructuras metálicas</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body>
@@ -25,11 +26,23 @@
 
   <!-- CONTEXT MENU -->
   <div id="context-menu" class="hidden">
-    <div class="ctx-item" data-action="duplicate"><i class="fa-solid fa-clone"></i> Duplicar</div>
-    <div class="ctx-item" data-action="isolate"><i class="fa-solid fa-eye"></i> Aislar</div>
-    <div class="ctx-item" data-action="focus"><i class="fa-solid fa-crosshairs"></i> Centrar cámara</div>
+    <div class="ctx-item" data-action="duplicate">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+      <span>Duplicar</span>
+    </div>
+    <div class="ctx-item" data-action="isolate">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+      <span>Aislar</span>
+    </div>
+    <div class="ctx-item" data-action="focus">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M3 7V4h3M17 4h3v3M3 17v3h3M17 20h3v-3"/></svg>
+      <span>Centrar cámara</span>
+    </div>
     <div class="ctx-sep"></div>
-    <div class="ctx-item danger" data-action="delete"><i class="fa-solid fa-trash"></i> Eliminar</div>
+    <div class="ctx-item danger" data-action="delete">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/><path d="M10 11v6M14 11v6"/></svg>
+      <span>Eliminar</span>
+    </div>
   </div>
 
   <!-- HOVER TOOLTIP -->
@@ -48,12 +61,24 @@
 
     <!-- 3D VIEWPORT -->
     <div id="canvas-container">
-      <!-- VIEW CUBE -->
+      <!-- VIEW CUBE 3D -->
       <div id="view-cube">
-        <div class="vc-label vc-top" data-view="top">TOP</div>
-        <div class="vc-label vc-front" data-view="front">FRONT</div>
-        <div class="vc-label vc-right" data-view="right">RIGHT</div>
-        <div class="vc-label vc-iso" data-view="iso">3D</div>
+        <canvas id="nav-cube-canvas" width="192" height="192" title="Cubo de navegación 3D"></canvas>
+        <button id="nav-cube-home" title="Fit All (Home)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1z"/></svg>
+        </button>
+        <div id="nav-cube-gnomon">X · Y · Z</div>
+      </div>
+
+      <!-- ZOOM SCALER WIDGET -->
+      <div id="zoom-widget" class="glass-panel">
+        <button id="zw-in" title="Acercar (+)" class="zw-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+        <div id="zw-label" title="Doble clic para Reset">100%</div>
+        <button id="zw-out" title="Alejar (-)" class="zw-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg>
+        </button>
       </div>
 
       <!-- VIEWPORT OVERLAYS -->
@@ -61,16 +86,22 @@
 
       <!-- MINI TRANSFORM WIDGET (shown on selection) -->
       <div id="mini-transform" class="hidden">
-        <button class="mt-btn active" data-mode="translate" title="Mover (G)"><i class="fa-solid fa-up-down-left-right"></i></button>
-        <button class="mt-btn" data-mode="rotate" title="Rotar (R)"><i class="fa-solid fa-rotate"></i></button>
-        <button class="mt-btn" data-mode="scale" title="Escalar (S)"><i class="fa-solid fa-expand"></i></button>
+        <button class="mt-btn active" data-mode="translate" title="Mover (G)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18M5 10l-2 2 2 2M19 10l2 2-2 2M10 5l2-2 2 2M10 19l2 2 2-2"/></svg>
+        </button>
+        <button class="mt-btn" data-mode="rotate" title="Rotar (R)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 1 2.34 5.66"/><path d="M4 19v-4h4"/></svg>
+        </button>
+        <button class="mt-btn" data-mode="scale" title="Escalar (S)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21v-6M3 21h6M21 3v6M21 3h-6M14 10l7-7M10 14l-7 7"/></svg>
+        </button>
         <div class="mt-sep"></div>
         <button class="mt-btn" id="mt-local-global" title="Coordenadas Locales/Globales"><span class="mt-coord-label">GLB</span></button>
       </div>
 
       <!-- SNAP INDICATOR -->
       <div id="snap-indicator" class="hidden">
-        <i class="fa-solid fa-magnet"></i>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v10a7 7 0 0 0 14 0V3"/><path d="M5 8h4M15 8h4M5 3h4M15 3h4"/></svg>
         <span id="snap-type-label">GRID</span>
       </div>
 
@@ -88,7 +119,7 @@
     <!-- STATUS BAR (bottom) -->
     <div id="status-bar">
       <div class="sb-left">
-        <span class="sb-logo">COMETV <b>STRUCTURAL</b></span>
+        <span class="sb-logo">ESTRUCTURAS <b>PRO</b></span>
         <span class="sb-sep">|</span>
         <span id="sb-objects">0 objetos</span>
         <span class="sb-sep">|</span>
@@ -98,11 +129,68 @@
         <span id="sb-tool">Seleccionar</span>
       </div>
       <div class="sb-right">
-        <span id="sb-snap-status" class="sb-snap active"><i class="fa-solid fa-magnet"></i> SNAP</span>
+        <span id="sb-chip-grid" class="sb-chip active" title="Rejilla (G)">GRID</span>
+        <span id="sb-chip-snap" class="sb-chip active" title="Captura inteligente: vértice, extremo, punto medio, arista, cara y rejilla">SNAP · GRID</span>
+        <span id="sb-chip-cam" class="sb-chip" title="Cámara Perspectiva / Ortográfica">PERS</span>
+        <span id="sb-chip-fps" class="sb-chip" title="FPS">60 FPS</span>
         <span class="sb-sep">|</span>
-        <span id="sb-coords">0.000 · 0.000 · 0.000</span>
+        <span id="sb-coords">0.000 · 0.000 · 0.000 m</span>
         <span class="sb-sep">|</span>
-        <span id="sb-version">v3.0 PRO</span>
+        <span id="sb-version">v6.0 · CE · A22/A26</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- MÓDULO DIDÁCTICO ETSIE -->
+  <div id="tut-overlay" class="hidden">
+    <div id="tut-modal" class="glass-panel">
+      <div class="tut-header">
+        <div class="tut-title">
+          <i class="fa-solid fa-graduation-cap"></i>
+          <div><h3 style="margin:0; font-size:14px;">Módulo didáctico ETSIE</h3><span style="font-size:10px; opacity:0.7;">Nivel examen · Código Estructural</span></div>
+        </div>
+        <button id="tut-close-btn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="tut-body">
+        <div class="tut-sidebar">
+          <button class="tut-tab active" data-tab="tut-theory"><i class="fa-solid fa-book-open"></i> Teoría</button>
+          <button class="tut-tab" data-tab="tut-tables"><i class="fa-solid fa-table"></i> Prontuario</button>
+          <button class="tut-tab" data-tab="tut-quiz"><i class="fa-solid fa-pen-to-square"></i> Tests</button>
+          <div class="tut-progress-container">
+            <span class="tut-prog-title">Tu Progreso</span>
+            <div class="tut-prog-bar"><div id="tut-prog-fill" style="width: 0%"></div></div>
+            <span id="tut-score">0% completado</span>
+          </div>
+        </div>
+        <div class="tut-content">
+          <div id="tut-theory" class="tut-pane active">
+            <h2>Tornillos Normales a Cortante</h2>
+            <p>La resistencia F<sub>v,Rd</sub> según el Código Estructural · Anejo 26 (EN 1993-1-8) se calcula como:</p>
+            <div class="tut-formula">F<sub>v,Rd</sub> = (α<sub>v</sub> · f<sub>ub</sub> · A) / γ<sub>M2</sub></div>
+            <ul style="font-size:11px; margin-top:8px;">
+              <li><b>α<sub>v</sub></b> = 0.6 para clases 4.6, 5.6, 8.8.</li>
+              <li><b>α<sub>v</sub></b> = 0.5 para clases 4.8, 5.8, 6.8, 10.9.</li>
+              <li><b>A</b> = Área resistente (A<sub>s</sub>) o de la caña.</li>
+            </ul>
+          </div>
+          <div id="tut-tables" class="tut-pane hidden">
+            <h2>Prontuario Áreas (A<sub>s</sub>)</h2>
+            <table class="tut-table" style="width:100%;text-align:left;font-size:11px;border-collapse:collapse;">
+              <tr style="border-bottom:1px solid #444;"><th>Métrica</th><th>A<sub>s</sub> (mm²)</th><th>Agujero (d<sub>0</sub>)</th></tr>
+              <tr><td>M12</td><td>84.3</td><td>13 mm</td></tr>
+              <tr><td>M16</td><td>157</td><td>18 mm</td></tr>
+              <tr><td>M20</td><td>245</td><td>22 mm</td></tr>
+              <tr><td>M24</td><td>353</td><td>26 mm</td></tr>
+              <tr><td>M30</td><td>561</td><td>33 mm</td></tr>
+            </table>
+          </div>
+          <div id="tut-quiz" class="tut-pane hidden">
+            <h2 id="q-title">Pregunta 1</h2>
+            <p id="q-text" style="font-size:12px;">Cargando...</p>
+            <div id="q-options" style="display:flex; flex-direction:column; gap:8px;"></div>
+            <div id="q-feedback" style="margin-top:10px; font-weight:bold;"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

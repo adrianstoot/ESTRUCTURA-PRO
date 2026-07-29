@@ -1,6 +1,8 @@
+import { icon } from './icons.js';
+
 /**
- * Ribbon v3.0 — Professional tabbed toolbar.
- * Tabs: Estructura, Conexiones, Tornillería, Edición, Visualización, Análisis
+ * Ribbon v4.0 — Professional tabbed toolbar.
+ * Tabs: Estructura, Conexiones, Tornillería, Edición, Visualización
  */
 export class Ribbon {
   constructor(ribbonElement) {
@@ -14,17 +16,62 @@ export class Ribbon {
 
   _render() {
     this.ribbon.innerHTML = `
-      <div class="ribbon-tabs">
-        <button class="ribbon-tab active" data-tab="estructura"><i class="fa-solid fa-building"></i> Estructura</button>
-        <button class="ribbon-tab" data-tab="conexiones"><i class="fa-solid fa-link"></i> Conexiones</button>
-        <button class="ribbon-tab" data-tab="tornilleria"><i class="fa-solid fa-gears"></i> Tornillería</button>
-        <button class="ribbon-tab" data-tab="edicion"><i class="fa-solid fa-pen-ruler"></i> Edición</button>
-        <button class="ribbon-tab" data-tab="visualizacion"><i class="fa-solid fa-eye"></i> Visualización</button>
+      <div class="ribbon-tabs" role="tablist" aria-label="Herramientas del modelo">
+        <button class="ribbon-tab" data-tab="inicio"><span>INICIO</span></button>
+        <button class="ribbon-tab active" data-tab="modelo"><span>MODELO</span></button>
+        <button class="ribbon-tab" data-tab="estructura"><span>ESTRUCTURA</span></button>
+        <button class="ribbon-tab" data-tab="cargas"><span>CARGAS</span></button>
+        <button class="ribbon-tab" data-tab="analisis"><span>ANÁLISIS</span></button>
+        <button class="ribbon-tab" data-tab="conexiones"><span>CONEXIONES</span></button>
+        <button class="ribbon-tab" data-tab="detalles"><span>DETALLES</span></button>
+        <button class="ribbon-tab" data-tab="informes"><span>PLANOS</span></button>
+        <button class="ribbon-tab" data-tab="informes"><span>INFORMES</span></button>
+        <button class="ribbon-tab" data-tab="visualizacion"><span>VISTA</span></button>
+        <button class="ribbon-tab" data-tab="edicion"><span>GESTIONAR</span></button>
       </div>
       <div class="ribbon-content">
 
+        <!-- INICIO -->
+        <div class="ribbon-panel hidden" data-panel="inicio">
+          <div class="ribbon-group-box ribbon-group-featured"><div class="ribbon-group-buttons">
+            ${this._rbtn('project-new', icon('filePlus',20), 'Nuevo', 'Crear un proyecto nuevo', 'featured-btn')}
+            ${this._rbtn('project-open', icon('folder',20), 'Abrir', 'Cargar proyecto')}
+            ${this._rbtn('project-save', icon('save',20), 'Guardar', 'Guardar proyecto')}
+            ${this._rbtn('project-export', icon('download',20), 'Exportar', 'Exportar proyecto')}
+          </div><div class="ribbon-group-title">Proyecto</div></div>
+          <div class="ribbon-group-box"><div class="ribbon-group-buttons">
+            ${this._rbtn('tool-select', icon('pointer',18), 'Modificar', 'Seleccionar y modificar')}
+            ${this._rbtn('duplicate', icon('copy',18), 'Duplicar', 'Duplicar selección')}
+            ${this._rbtn('delete-selected', icon('trash',18), 'Eliminar', 'Eliminar selección')}
+          </div><div class="ribbon-group-title">Edición rápida</div></div>
+          <div class="ribbon-group-box"><div class="ribbon-group-buttons">
+            ${this._rbtn('report-pdf', icon('file',18), 'Memoria PDF', 'Generar memoria justificativa')}
+            ${this._rbtn('report-html', icon('download',18), 'Memoria HTML', 'Descargar memoria HTML')}
+            ${this._rbtn('open-tutorial', icon('graduation',18), 'ETSIE', 'Módulo didáctico')}
+          </div><div class="ribbon-group-title">Entregables</div></div>
+        </div>
+
         <!-- ESTRUCTURA -->
-        <div class="ribbon-panel" data-panel="estructura">
+        <div class="ribbon-panel hidden" data-panel="estructura">
+          <div class="ribbon-group-box ribbon-group-featured"><div class="ribbon-group-buttons">
+            ${this._rbtn('preset-structures', icon('wand',20), 'Plantillas', 'Abrir catálogo de estructuras', 'featured-btn')}
+            ${this._rbtn('preset-portal', icon('column',18), 'Pórtico', 'Pórtico a dos aguas')}
+            ${this._rbtn('preset-truss', icon('truss',18), 'Cercha', 'Cercha Pratt / Warren')}
+          </div><div class="ribbon-group-title">Estructuras paramétricas</div></div>
+          <div class="ribbon-group-box"><div class="ribbon-group-buttons">
+            ${this._rbtn('add-heb-col', icon('column',18), 'Pilar HEB', 'Insertar pilar HEB')}
+            ${this._rbtn('add-ipe', icon('beam',18), 'Viga IPE', 'Insertar viga IPE')}
+            ${this._rbtn('add-shs', icon('column',18), 'Tubo SHS', 'Insertar tubo SHS')}
+          </div><div class="ribbon-group-title">Barras</div></div>
+          <div class="ribbon-group-box"><div class="ribbon-group-buttons">
+            ${this._rbtn('open-custom-part', icon('layers',18), 'Pieza libre', 'Diseñar rigidizador o cartela')}
+            ${this._rbtn('preset-connections', icon('plate',18), 'Uniones', 'Abrir plantillas de unión')}
+            ${this._rbtn('clash-scan', icon('warning',18), 'Solapes', 'Comprobar colisiones')}
+          </div><div class="ribbon-group-title">Detalle y control</div></div>
+        </div>
+
+        <!-- ESTRUCTURA -->
+        <div class="ribbon-panel" data-panel="modelo">
           <div class="ribbon-group-box">
             <div class="ribbon-group-buttons">
               ${this._rbtn('add-heb-col', `<svg viewBox="0 0 24 24" width="18" height="18"><rect x="10" y="2" width="4" height="20" fill="currentColor" rx="1"/><rect x="6" y="2" width="12" height="3" fill="currentColor" rx="1"/><rect x="6" y="19" width="12" height="3" fill="currentColor" rx="1"/></svg>`, 'Col. HEB', 'Columna HEB 200')}
@@ -46,12 +93,31 @@ export class Ribbon {
             <div class="ribbon-group-title">Otros Perfiles</div>
           </div>
           <div class="ribbon-vsep"></div>
+          <div class="ribbon-group-box ribbon-group-featured">
+            <div class="ribbon-group-buttons">
+              ${this._rbtn('preset-structures', icon('wand',18), 'Plantillas', 'Pórticos y cerchas paramétricas en 1-click', 'featured-btn')}
+              ${this._rbtn('preset-portal', icon('column',16), 'Pórtico', 'Pórtico a dos aguas')}
+              ${this._rbtn('preset-truss', icon('truss',16), 'Cercha', 'Cercha Pratt/Warren')}
+            </div>
+            <div class="ribbon-group-title">Tipologías 1-click</div>
+          </div>
+          <div class="ribbon-vsep"></div>
           <div class="ribbon-group-box">
             <div class="ribbon-group-buttons">
-              ${this._rbtn('duplicate', '<i class="fa-solid fa-clone"></i>', 'Duplicar', 'Duplicar selección (Ctrl+D)')}
-              ${this._rbtn('array-linear', '<i class="fa-solid fa-ellipsis"></i>', 'Array Lin.', 'Duplicar en línea')}
+              ${this._rbtn('duplicate', icon('copy',16), 'Duplicar', 'Duplicar selección (Ctrl+D)')}
+              ${this._rbtn('array-linear', icon('arrayLinear',16), 'Array Lin.', 'Duplicar en línea')}
             </div>
             <div class="ribbon-group-title">Composición</div>
+          </div>
+          <div class="ribbon-vsep"></div>
+          <div class="ribbon-group-box">
+            <div class="ribbon-group-buttons">
+              ${this._rbtn('add-plate', icon('plate',18), 'Placa', 'Insertar placa estructural')}
+              ${this._rbtn('add-bolt', icon('bolt',18), 'Pernos', 'Insertar tornillería')}
+              ${this._rbtn('tool-weld', icon('weld',18), 'Soldadura', 'Crear cordón de soldadura')}
+              <button class="ribbon-btn" data-action="open-custom-part" title="Pieza personalizada paramétrica">${icon('layers',18)}<span>Pieza libre</span></button>
+            </div>
+            <div class="ribbon-group-title">Detalles de acero</div>
           </div>
         </div>
 
@@ -62,8 +128,19 @@ export class Ribbon {
               ${this._rbtn('add-plate', `<svg viewBox="0 0 24 24" width="18" height="18"><rect x="3" y="8" width="18" height="8" fill="currentColor" rx="1"/></svg>`, 'Placa Base', 'Placa base 300×300×20mm')}
               ${this._rbtn('add-gusset-sq', `<svg viewBox="0 0 24 24" width="18" height="18"><rect x="5" y="5" width="14" height="14" fill="currentColor" rx="1"/></svg>`, 'Cartela □', 'Cartela cuadrada')}
               ${this._rbtn('add-gusset-tri', `<svg viewBox="0 0 24 24" width="18" height="18"><polygon points="4,20 20,20 4,4" fill="currentColor"/></svg>`, 'Cartela △', 'Cartela triangular')}
+              ${this._rbtn('add-cleat', `<svg viewBox="0 0 24 24" width="18" height="18"><polyline points="6,20 18,20" stroke="currentColor" stroke-width="4" fill="none"/><polyline points="6,20 6,8" stroke="currentColor" stroke-width="4" fill="none"/></svg>`, 'Casquillo L', 'Casquillo de fijación o montaje L')}
+              ${this._rbtn('add-neoprene', `<svg viewBox="0 0 24 24" width="18" height="18"><rect x="3" y="10" width="18" height="4" fill="var(--tx-3)" rx="2"/></svg>`, 'Neopreno', 'Membrana elastomérica de apoyo CTE')}
             </div>
             <div class="ribbon-group-title">Placas</div>
+          </div>
+          <div class="ribbon-vsep"></div>
+          <div class="ribbon-group-box ribbon-group-featured">
+            <div class="ribbon-group-buttons">
+              ${this._rbtn('preset-connections', icon('wand',18), 'Plantillas', 'Uniones Código Estructural · Anejo 26', 'featured-btn')}
+              ${this._rbtn('bolt-matrix', icon('arrayLinear',16), 'Matriz N×M', 'Generar matriz de tornillos en placa')}
+              ${this._rbtn('explode-assembly', icon('layers',16), 'Explosionar', 'Vista explosionada del conjunto')}
+            </div>
+            <div class="ribbon-group-title">Conexiones 1-click</div>
           </div>
           <div class="ribbon-vsep"></div>
           <div class="ribbon-group-box">
@@ -85,9 +162,17 @@ export class Ribbon {
               ${this._rbtn('add-nut', `<svg viewBox="0 0 24 24" width="18" height="18"><polygon points="12,3 20,7 20,17 12,21 4,17 4,7" fill="none" stroke="currentColor" stroke-width="2"/></svg>`, 'Tuerca', 'Tuerca hexagonal M16')}
               ${this._rbtn('add-washer', `<svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/></svg>`, 'Arandela', 'Arandela M16')}
               ${this._rbtn('add-anchor', `<svg viewBox="0 0 24 24" width="18" height="18"><rect x="10" y="2" width="4" height="14" fill="currentColor" rx="1"/><path d="M12 16 Q6 16 6 20 Q6 22 10 22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>`, 'Anclaje', 'Perno de anclaje M20')}
-              ${this._rbtn('add-bolt-set', '<i class="fa-solid fa-layer-group"></i>', 'Conj. M16', 'Conjunto tornillo+tuerca+arandela M16')}
+              ${this._rbtn('add-bolt-set', icon('layers',16), 'Conj. M16', 'Conjunto tornillo+tuerca+arandela M16')}
             </div>
             <div class="ribbon-group-title">Elementos de Fijación</div>
+          </div>
+          <div class="ribbon-vsep"></div>
+          <div class="ribbon-group-box">
+            <div class="ribbon-group-buttons">
+              ${this._rbtn('bolt-matrix', icon('arrayLinear',16), 'Matriz N×M', 'Patrón paramétrico sobre placa')}
+              ${this._rbtn('run-bolt-check', icon('check',16), 'Comprobar', 'Comprobar grupo · Código Estructural · Anejo 26')}
+            </div>
+            <div class="ribbon-group-title">Grupo de tornillos</div>
           </div>
           <div class="ribbon-vsep"></div>
           <div class="ribbon-group-box">
@@ -103,35 +188,144 @@ export class Ribbon {
           </div>
         </div>
 
+        <!-- ANÁLISIS -->
+
+        <!-- CARGAS -->
+        <div class="ribbon-panel hidden" data-panel="cargas">
+          <div class="ribbon-group-box ribbon-group-featured">
+            <div class="ribbon-group-buttons">
+              <button class="ribbon-btn featured-btn" data-action="add-load-point" title="Añadir carga puntual">${icon('move',20)}<span>Puntual</span></button>
+              <button class="ribbon-btn" data-action="add-load-distributed" title="Añadir carga distribuida">${icon('arrayLinear',20)}<span>Distribuida</span></button>
+              <button class="ribbon-btn" data-action="add-load-moment" title="Añadir momento aplicado">${icon('rotate',20)}<span>Momento</span></button>
+            </div>
+            <div class="ribbon-group-title">Acciones sobre barras</div>
+          </div>
+          <div class="ribbon-vsep"></div>
+          <div class="ribbon-group-box">
+            <div class="ribbon-group-buttons">
+              ${this._rbtn('toggle-diagrams', icon('chart',18), 'Diagramas', 'Mostrar diagramas N / V / M')}
+              ${this._rbtn('run-check', icon('check',18), 'Calcular', 'Comprobar el elemento seleccionado')}
+              ${this._rbtn('clear-diagrams', icon('eyeOff',18), 'Limpiar', 'Ocultar resultados')}
+            </div>
+            <div class="ribbon-group-title">Resultados de cálculo</div>
+          </div>
+          <div class="ribbon-vsep"></div>
+          <div class="ribbon-group-box">
+            <div class="ribbon-group-buttons">
+              <div class="ribbon-inline">
+                <label class="ribbon-label">Hipótesis</label>
+                <select class="ribbon-select" aria-label="Hipótesis de carga"><option>ELU</option><option>ELS</option></select>
+              </div>
+            </div>
+            <div class="ribbon-group-title">Combinaciones</div>
+          </div>
+        </div>
+
+        <div class="ribbon-panel hidden" data-panel="analisis">
+          <div class="ribbon-group-box ribbon-group-featured">
+            <div class="ribbon-group-buttons">
+              ${this._rbtn('run-check', icon('check',18), 'Calcular', 'Ejecutar comprobación ELU/ELS del elemento', 'featured-btn')}
+              ${this._rbtn('toggle-diagrams', icon('chart',16), 'Diagramas', 'Mostrar N/V/M y deformada')}
+            </div>
+            <div class="ribbon-group-title">Barra / Perfil</div>
+          </div>
+          <div class="ribbon-vsep"></div>
+          <div class="ribbon-group-box">
+            <div class="ribbon-group-buttons">
+              ${this._rbtn('run-bolt-check', icon('bolt',16), 'Tornillos', 'Comprobar grupo · Código Estructural · Anejo 26')}
+              ${this._rbtn('run-weld-check', icon('weld',16), 'Soldadura', 'Comprobar cordón · Código Estructural · Anejo 26')}
+            </div>
+            <div class="ribbon-group-title">Uniones</div>
+          </div>
+          <div class="ribbon-vsep"></div>
+          <div class="ribbon-group-box">
+            <div class="ribbon-group-buttons">
+              ${this._rbtn('clash-scan', icon('warning',16), 'Solapes', 'Analizar colisiones geométricas')}
+              ${this._rbtn('clear-diagrams', icon('eyeOff',16), 'Limpiar', 'Ocultar resultados gráficos')}
+            </div>
+            <div class="ribbon-group-title">Validación</div>
+          </div>
+        </div>
+
+        <!-- DETALLES -->
+        <div class="ribbon-panel hidden" data-panel="detalles">
+          <div class="ribbon-group-box ribbon-group-featured">
+            <div class="ribbon-group-buttons">
+              <button class="ribbon-btn featured-btn" data-action="open-custom-part" title="Crear una pieza paramétrica">${icon('wand',20)}<span>Pieza personalizada</span></button>
+              ${this._rbtn('add-plate', icon('plate',18), 'Placa', 'Insertar placa')}
+              ${this._rbtn('add-gusset-tri', icon('angle',18), 'Cartela', 'Insertar cartela triangular')}
+            </div>
+            <div class="ribbon-group-title">Piezas y chapas</div>
+          </div>
+          <div class="ribbon-vsep"></div>
+          <div class="ribbon-group-box">
+            <div class="ribbon-group-buttons">
+              ${this._rbtn('add-bolt', icon('bolt',18), 'Perno', 'Insertar perno')}
+              ${this._rbtn('bolt-matrix', icon('arrayLinear',18), 'Matriz N×M', 'Generar matriz paramétrica')}
+              ${this._rbtn('add-anchor', icon('layers',18), 'Anclaje', 'Insertar anclaje')}
+              ${this._rbtn('tool-weld', icon('weld',18), 'Soldadura', 'Crear cordón')}
+            </div>
+            <div class="ribbon-group-title">Tornillos y soldaduras</div>
+          </div>
+          <div class="ribbon-vsep"></div>
+          <div class="ribbon-group-box">
+            <div class="ribbon-group-buttons">
+              ${this._rbtn('measure-dist', icon('ruler',18), 'Cota', 'Medir distancia')}
+              ${this._rbtn('measure-angle', icon('angle',18), 'Ángulo', 'Medir ángulo')}
+              ${this._rbtn('clash-scan', icon('warning',18), 'Solapes', 'Detectar colisiones')}
+            </div>
+            <div class="ribbon-group-title">Documentación</div>
+          </div>
+        </div>
+
         <!-- EDICIÓN -->
         <div class="ribbon-panel hidden" data-panel="edicion">
           <div class="ribbon-group-box">
             <div class="ribbon-group-buttons">
-              ${this._rbtn('tool-select', '<i class="fa-solid fa-arrow-pointer"></i>', 'Selec.', 'Seleccionar (V)')}
+              ${this._rbtn('tool-select', icon('pointer',16), 'Selec.', 'Seleccionar (V)')}
             </div>
             <div class="ribbon-group-title">Selección</div>
           </div>
           <div class="ribbon-vsep"></div>
           <div class="ribbon-group-box">
             <div class="ribbon-group-buttons">
-              ${this._rbtn('tool-move', '<i class="fa-solid fa-up-down-left-right"></i>', 'Mover', 'Mover (G)')}
-              ${this._rbtn('tool-rotate', '<i class="fa-solid fa-rotate"></i>', 'Rotar', 'Rotar (R)')}
-              ${this._rbtn('tool-scale', '<i class="fa-solid fa-expand"></i>', 'Escalar', 'Escalar (S)')}
+              ${this._rbtn('tool-move',   icon('move',16),   'Mover',   'Mover (G)')}
+              ${this._rbtn('tool-rotate', icon('rotate',16), 'Rotar',   'Rotar (R)')}
+              ${this._rbtn('tool-scale',  icon('scale',16),  'Escalar', 'Escalar (S)')}
             </div>
             <div class="ribbon-group-title">Transformar</div>
           </div>
           <div class="ribbon-vsep"></div>
           <div class="ribbon-group-box">
             <div class="ribbon-group-buttons">
-              ${this._rbtn('tool-measure', '<i class="fa-solid fa-ruler-combined"></i>', 'Medir', 'Medir distancia (M)')}
+              ${this._rbtn('measure-dist',  icon('ruler',16), 'Distancia', 'Medir distancia (M)')}
+              ${this._rbtn('measure-angle', icon('angle',16), 'Ángulo',    'Medir ángulo (3 clics)')}
+              ${this._rbtn('measure-area',  icon('area',16),  'Área',      'Medir área (N clics + Enter)')}
             </div>
             <div class="ribbon-group-title">Medición</div>
           </div>
           <div class="ribbon-vsep"></div>
           <div class="ribbon-group-box">
             <div class="ribbon-group-buttons">
-              ${this._rbtn('duplicate', '<i class="fa-solid fa-clone"></i>', 'Duplicar', 'Duplicar (Ctrl+D)')}
-              ${this._rbtn('delete-selected', '<i class="fa-solid fa-trash-can" style="color:var(--danger)"></i>', 'Eliminar', 'Eliminar (Del)', 'danger-btn')}
+              ${this._rbtn('array-linear', icon('arrayLinear',16), 'Array Lin.', 'Array lineal')}
+              ${this._rbtn('array-polar',  icon('arrayPolar',16),  'Array Pol.', 'Array polar')}
+            </div>
+            <div class="ribbon-group-title">Copias</div>
+          </div>
+          <div class="ribbon-vsep"></div>
+          <div class="ribbon-group-box">
+            <div class="ribbon-group-buttons">
+              ${this._rbtn('align-x', icon('alignH',16), 'Alinear X', 'Alinear en eje X (media)')}
+              ${this._rbtn('align-y', icon('alignV',16), 'Alinear Y', 'Alinear en eje Y (media)')}
+              ${this._rbtn('align-z', icon('alignH',16), 'Alinear Z', 'Alinear en eje Z (media)')}
+            </div>
+            <div class="ribbon-group-title">Alinear</div>
+          </div>
+          <div class="ribbon-vsep"></div>
+          <div class="ribbon-group-box">
+            <div class="ribbon-group-buttons">
+              ${this._rbtn('duplicate',       icon('copy',16),  'Duplicar', 'Duplicar (Ctrl+D)')}
+              ${this._rbtn('delete-selected', icon('trash',16), 'Eliminar', 'Eliminar (Del)', 'danger-btn')}
             </div>
             <div class="ribbon-group-title">Acciones</div>
           </div>
@@ -152,23 +346,30 @@ export class Ribbon {
 
         <!-- VISUALIZACIÓN -->
         <div class="ribbon-panel hidden" data-panel="visualizacion">
+          <div class="ribbon-group-box ribbon-group-featured">
+            <div class="ribbon-group-buttons">
+              <button class="ribbon-btn featured-btn" data-action="open-render-studio" title="Abrir Render Studio">${icon('eye',20)}<span>Render</span></button>
+            </div>
+            <div class="ribbon-group-title">Presentación</div>
+          </div>
+          <div class="ribbon-vsep"></div>
           <div class="ribbon-group-box">
             <div class="ribbon-group-buttons">
-              ${this._rbtn('view-iso',   '<i class="fa-solid fa-cube"></i>',        'ISO 3D',    'Vista isométrica 3D (1)')}
-              ${this._rbtn('view-top',   '<i class="fa-solid fa-border-all"></i>',  'Planta',    'Vista de planta (7)')}
-              ${this._rbtn('view-front', '<i class="fa-solid fa-square"></i>',      'Frontal',   'Vista frontal (3)')}
-              ${this._rbtn('view-left',  '<i class="fa-solid fa-caret-left"></i>',  'Izquierda', 'Vista izquierda (5)')}
-              ${this._rbtn('view-right', '<i class="fa-solid fa-caret-right"></i>', 'Derecha',   'Vista derecha')}
+              ${this._rbtn('view-iso',   icon('viewIso',16),   'ISO 3D',    'Vista isométrica 3D (1)')}
+              ${this._rbtn('view-top',   icon('viewTop',16),   'Planta',    'Vista de planta (7)')}
+              ${this._rbtn('view-front', icon('viewFront',16), 'Frontal',   'Vista frontal (3)')}
+              ${this._rbtn('view-left',  icon('viewLeft',16),  'Izquierda', 'Vista izquierda (5)')}
+              ${this._rbtn('view-right', icon('chevRight',16), 'Derecha',   'Vista derecha')}
             </div>
             <div class="ribbon-group-title">Cámara</div>
           </div>
           <div class="ribbon-vsep"></div>
           <div class="ribbon-group-box">
             <div class="ribbon-group-buttons">
-              ${this._rbtn('mode-clay', '<i class="fa-solid fa-circle" style="color:#aabac8"></i>',  'Clay',    'Modo Clay técnico')}
-              ${this._rbtn('mode-pbr',  '<i class="fa-solid fa-circle" style="color:#6b93ff"></i>',  'PBR',     'Modo PBR realista')}
-              ${this._rbtn('mode-wire', '<i class="fa-regular fa-circle" style="color:#4a7acc"></i>','Wire',    'Modo alámbrico')}
-              ${this._rbtn('mode-xray', '<i class="fa-solid fa-circle" style="color:#a855f7;opacity:0.5"></i>', 'X-Ray', 'Modo transparente')}
+              ${this._rbtn('mode-clay', '<span class="mode-dot" style="background:#aabac8"></span>', 'Clay',    'Modo Clay técnico')}
+              ${this._rbtn('mode-pbr',  '<span class="mode-dot" style="background:#6b93ff"></span>', 'PBR',     'Modo PBR realista')}
+              ${this._rbtn('mode-wire', '<span class="mode-dot" style="background:transparent;border:2px solid #4a7acc"></span>', 'Wire', 'Modo alámbrico')}
+              ${this._rbtn('mode-xray', '<span class="mode-dot" style="background:#a855f7;opacity:0.5"></span>', 'X-Ray', 'Modo transparente')}
             </div>
             <div class="ribbon-group-title">Modo Visual</div>
           </div>
@@ -185,14 +386,27 @@ export class Ribbon {
                 </select>
               </div>
               <button class="ribbon-btn active" id="btn-snap" data-action="toggle-snap" title="Snap (activar/desactivar)">
-                <i class="fa-solid fa-magnet"></i><span>Snap</span>
+                ${icon('magnet',16)}<span>Snap</span>
               </button>
             </div>
             <div class="ribbon-group-title">Grid / Snap</div>
           </div>
         </div>
 
-      </div>
+      
+        <!-- INFORMES -->
+        <div class="ribbon-panel hidden" data-panel="informes">
+          <div class="ribbon-group-box ribbon-group-featured"><div class="ribbon-group-buttons">
+            ${this._rbtn('report-pdf', icon('file',18), 'Memoria PDF', 'Vista imprimible / Guardar como PDF', 'featured-btn')}
+            ${this._rbtn('report-html', icon('download',16), 'Memoria HTML', 'Descargar informe HTML autónomo')}
+          </div><div class="ribbon-group-title">Memoria justificativa</div></div>
+          <div class="ribbon-vsep"></div>
+          <div class="ribbon-group-box"><div class="ribbon-group-buttons">
+            ${this._rbtn('export-json', icon('download',16), 'Proyecto JSON', 'Exportar modelo editable')}
+            ${this._rbtn('open-tutorial', icon('graduation',16), 'Módulo ETSIE', 'Tests y teoría de examen')}
+          </div><div class="ribbon-group-title">Entregables / Formación</div></div>
+        </div>
+</div>
     `;
 
     // Tab switching
@@ -251,3 +465,5 @@ export class Ribbon {
     });
   }
 }
+
+

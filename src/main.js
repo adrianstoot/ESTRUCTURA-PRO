@@ -1,6 +1,9 @@
 import './ui/layout.css';
+import './ui/geometric-system.css';
+import './ui/editor-pro.css';
 import { LoginScreen } from './ui/LoginScreen.js';
 import { SceneManager } from './core/SceneManager.js';
+import { NavigationCube } from './core/NavigationCube.js';
 import { GridManager } from './core/GridManager.js';
 import { SnapManager } from './core/SnapManager.js';
 import { Profile } from './entities/Profile.js';
@@ -16,6 +19,12 @@ import { Sidebar } from './ui/Sidebar.js';
 import { Ribbon } from './ui/Ribbon.js';
 import { PropertiesPanel } from './ui/PropertiesPanel.js';
 import { SectionDrawer } from './ui/SectionDrawer.js';
+import { TutorialModule } from './ui/TutorialModule.js';
+import { CustomPartEditor } from './ui/CustomPartEditor.js';
+import { ProWorkspaceController } from './core/ProWorkspaceController.js';
+import { LoadManager } from './core/LoadManager.js';
+import { RenderStudio } from './core/RenderStudio.js';
+import { serializeBIMObject, serializeProject, restoreProject } from './core/ProjectSerializer.js';
 
 // ─── DOM ELEMENTS ─────────────────────────────────────────────
 const appEl = document.getElementById('app');
@@ -27,29 +36,35 @@ const sidebar = new Sidebar(document.getElementById('sidebar'));
 const ribbon = new Ribbon(document.getElementById('ribbon'));
 
 let sceneManager, gridManager, snapManager, gizmoManager;
-let sectionDrawer, propsPanel;
+let sectionDrawer, propsPanel, tutorialModule, proController;
+let customPartEditor, loadManager, renderStudio;
 let selectTool, measureTool, weldTool;
+let navCube = null;
 let activeTool = 'select';
 let darkTheme = true;
 let visualMode = 'clay';
 let gizmoSpace = 'world';
 let _undoStack = [];
 let _undoPointer = -1;
+let _currentProjectName = 'Sin título';
+let _appSettings = { units: 'metric', interfaceTheme: 'dark', snapPrecision: '10', autosave: true, reducedMotion: false };
+const RECENTS_KEY = 'estructuras-pro:recent';
+const VIEW_SLOTS_KEY = 'estructuras-pro:views';
 
 // ─── LOGIN ────────────────────────────────────────────────────
-new LoginScreen((userName) => {
+new LoginScreen((userName, launchContext = {}) => {
   appEl.classList.remove('hidden');
   header.setUser(userName);
   // Wait for browser to do layout pass before Three.js reads clientWidth
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      initApp();
+      initApp(launchContext);
     });
   });
 });
 
 // ─── INIT ─────────────────────────────────────────────────────
-function initApp() {
+function initApp(launchContext = {}) {
   const canvas = document.getElementById('canvas-container');
 
   sceneManager = new SceneManager(canvas);
@@ -59,31 +74,49 @@ function initApp() {
 
   sectionDrawer = new SectionDrawer();
   propsPanel = new PropertiesPanel(document.getElementById('properties-panel'), sectionDrawer);
+  tutorialModule = new TutorialModule();
+  loadManager = new LoadManager(sceneManager, {
+    toast: showToast,
+    onCommit: (element) => {
+      propsPanel.update(element);
+      pushUndo();
+      refreshWorkspace();
+    },
+  });
+  renderStudio = new RenderStudio(sceneManager);
+  customPartEditor = new CustomPartEditor(sceneManager, {
+    toast: showToast,
+    onCreate: (plate) => {
+      selectAndShow(plate);
+      pushUndo();
+      refreshWorkspace();
+    },
+  });
 
   // Tools
   selectTool = new SelectTool(sceneManager, snapManager, (bimObj) => {
     propsPanel.update(bimObj);
     updateMiniTransform(bimObj);
-    if (bimObj) sceneManager.attachGizmo(bimObj.mesh);
+    if (bimObj && bimObj.type !== 'weld') sceneManager.attachGizmo(bimObj.mesh);
     else sceneManager.detachGizmo();
+    sidebar.setActiveObject(bimObj?.id || null);
   });
 
   measureTool = new MeasureTool(sceneManager, snapManager);
-  weldTool = new WeldTool(sceneManager, snapManager, (weld) => selectAndShow(weld));
+  weldTool = new WeldTool(sceneManager, snapManager, (weld) => { selectAndShow(weld); pushUndo(); });
 
-  propsPanel.onDelete = (el) => {
-    sceneManager.removeObject(el);
-    selectTool.selected = null;
-    propsPanel.update(null);
-    updateMiniTransform(null);
-    updateStatusBar();
-  };
+  propsPanel.onDelete = (el) => deleteSelected();
   propsPanel.onDuplicate = (el) => duplicateSelected();
-  propsPanel.onColorChange = (el, color) => updateStatusBar();
+  propsPanel.onColorChange = (el, color) => { updateStatusBar(); pushUndo(); };
+  propsPanel.onPropertyChange = (el) => { loadManager?.rebuild(el); updateStatusBar(); pushUndo(); };
+
+  // Listen for gizmo drop
+  document.addEventListener('gizmo-drag-end', () => pushUndo());
 
   wireRibbon();
   wireSidebar();
   wireHeader();
+  header.onTutorialToggle = () => tutorialModule.show();
   wireCanvas();
   wireKeyboard();
   wireCommandPalette();
@@ -91,6 +124,16 @@ function initApp() {
   wireViewCube();
   wireMiniTransform();
   wireSnapIndicator();
+  _wireStatusChips();
+
+  proController = new ProWorkspaceController({
+    sceneManager, propsPanel, sidebar, ribbon,
+    getSelected: () => selectTool.selected,
+    selectObject: object => selectAndShow(object),
+    pushUndo, toast: showToast, refresh: refreshWorkspace,
+    getProjectName: () => _currentProjectName,
+    onExport: exportProject, onTutorial: () => tutorialModule.show(),
+  }).wire();
 
   // Gizmo coord sync
   sceneManager.transformControls?.addEventListener('objectChange', () => {
@@ -98,13 +141,15 @@ function initApp() {
       propsPanel.updateCoords(selectTool.selected);
       updateCoordReadout(selectTool.selected.getPosition());
     }
+    proController?.syncBoundWelds();
     updateStatusBar();
   });
 
   // Force resize to get correct canvas dimensions after app is shown
-  setTimeout(() => { sceneManager._onResize(); }, 50);
-  setTimeout(() => { sceneManager._onResize(); }, 200);
-  setTimeout(() => { sceneManager._onResize(); }, 500);
+  requestAnimationFrame(() => {
+    sceneManager._onResize();
+    requestAnimationFrame(() => sceneManager._onResize());
+  });
 
   // Set default visual mode
   setVisualMode('clay');
@@ -117,21 +162,50 @@ function initApp() {
   toastEl.id = 'toast-container';
   document.body.appendChild(toastEl);
 
-  console.log('✦ COMETV Structural v3.0 PRO — Initialized');
-  showToast('COMETV Structural v3.0 listo', 2500);
+  // Update recents dropdown
+  _refreshRecentsDropdown();
+
+  if (launchContext?.settings) {
+    _appSettings = { ..._appSettings, ...launchContext.settings };
+    document.documentElement.dataset.units = _appSettings.units || 'metric';
+    document.documentElement.classList.toggle('reduced-motion', !!_appSettings.reducedMotion);
+    snapManager.gridSnap = Math.max(.001, Number(_appSettings.snapPrecision || 10) / 1000);
+    const useDark = _appSettings.interfaceTheme === 'system'
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches
+      : _appSettings.interfaceTheme !== 'light';
+    header.setTheme(useDark);
+  }
+  if (launchContext?.project) _deserializeScene(launchContext.project);
+  _undoStack = [captureState()];
+  _undoPointer = 0;
+  refreshWorkspace();
+
+  // Disable legacy autosave state if it exists from older builds
+  try { localStorage.removeItem('cometv:auto'); } catch (_) {}
+
+  console.log('✦ ESTRUCTURAS PRO v6.0 — Código Estructural');
+  showToast('ESTRUCTURAS PRO listo', 2500);
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────
+function refreshWorkspace() {
+  sidebar.refresh(sceneManager?.objects || []);
+  sidebar.setActiveObject(selectTool?.selected?.id || null);
+  updateStatusBar();
+}
 function selectAndShow(bimObj) {
   if (selectTool.selected && selectTool.selected !== bimObj) {
     selectTool.selected.setSelected(false);
   }
   selectTool.selected = bimObj;
-  if (bimObj) bimObj.setSelected(true);
+  selectTool.selectedSet.forEach(object => { if (object !== bimObj) object.setSelected(false); });
+  selectTool.selectedSet.clear();
+  if (bimObj) { bimObj.setSelected(true); selectTool.selectedSet.add(bimObj); }
   propsPanel.update(bimObj);
   updateMiniTransform(bimObj);
-  if (bimObj) sceneManager.attachGizmo(bimObj.mesh);
+  if (bimObj && bimObj.type !== 'weld') sceneManager.attachGizmo(bimObj.mesh);
   else sceneManager.detachGizmo();
+  sidebar.setActiveObject(bimObj?.id || null);
   updateStatusBar();
 }
 
@@ -142,8 +216,9 @@ function createProfile(series, size, length, orientation) {
   pushUndo();
 }
 
-function createPlate(subtype, w = 0.3, h = 0.3, t = 0.02) {
+function createPlate(subtype, w = 0.3, h = 0.3, t = 0.02, points = null) {
   const p = new Plate(subtype, w, h, t);
+  if (points) p.params.points = points;
   sceneManager.addObject(p);
   selectAndShow(p);
   pushUndo();
@@ -154,6 +229,8 @@ function createFastener(subtype, metric = 'M16') {
   const f = new Fastener(subtype, metric_);
   sceneManager.addObject(f);
   selectAndShow(f);
+  // Auto-foco inmediato (Zoom in) para localizar piezas pequeñas
+  setTimeout(() => sceneManager.focusOnObject(f), 50); 
   pushUndo();
 }
 
@@ -162,16 +239,20 @@ function duplicateSelected() {
   if (!sel) return;
   let dup;
   if (sel.type === 'profile') {
-    dup = new Profile(sel.params.series, sel.params.size, sel.params.length, sel.params.orientation);
+    dup = new Profile(sel.params.series, sel.params.size, sel.params.length, sel.params.orientation, sel.params);
   } else if (sel.type === 'plate') {
     dup = new Plate(sel.params.subtype, sel.params.width, sel.params.height, sel.params.thickness);
+    dup.update(sel.params);
   } else if (sel.type === 'fastener') {
     dup = new Fastener(sel.params.subtype, sel.params.metric, sel.params.shankLength);
+    dup.update(sel.params);
   } else return;
   const pos = sel.getPosition();
   dup.setColor(sel.color);
   dup.steelGrade = sel.steelGrade;
   sceneManager.addObject(dup);
+  dup.mesh.quaternion.copy(sel.mesh.quaternion);
+  dup.mesh.scale.copy(sel.mesh.scale);
   dup.setPosition(pos.x + 0.3, pos.y, pos.z + 0.3);
   selectAndShow(dup);
   pushUndo();
@@ -180,7 +261,10 @@ function duplicateSelected() {
 
 function deleteSelected() {
   if (!selectTool.selected) return;
-  sceneManager.removeObject(selectTool.selected);
+  const removed = selectTool.selected;
+  sceneManager.removeObject(removed);
+  loadManager?.rebuildAll();
+  selectTool.selectedSet.delete(removed);
   selectTool.selected = null;
   propsPanel.update(null);
   updateMiniTransform(null);
@@ -246,12 +330,51 @@ function updateStatusBar() {
   const sbSel  = document.getElementById('sb-selection');
   if (sbObjs) sbObjs.textContent = `${sceneManager?.objects?.length || 0} objetos`;
   if (sbSel) {
-    if (selectTool?.selected) {
-      sbSel.textContent = selectTool.selected.designation;
-    } else {
-      sbSel.textContent = 'Sin selección';
-    }
+    sbSel.textContent = selectTool?.selected
+      ? (selectTool.selectedSet && selectTool.selectedSet.size > 1
+          ? `${selectTool.selectedSet.size} seleccionados`
+          : selectTool.selected.designation)
+      : 'Sin selección';
   }
+
+  // Chips
+  const fpsChip = document.getElementById('sb-chip-fps');
+  if (fpsChip && sceneManager?.fps != null) fpsChip.textContent = `${sceneManager.fps} FPS`;
+
+  const camChip = document.getElementById('sb-chip-cam');
+  if (camChip && sceneManager?.camera) {
+    const isOrtho = sceneManager.camera.type === 'OrthographicCamera';
+    camChip.textContent = isOrtho ? 'ORTHO' : 'PERS';
+    camChip.classList.toggle('active', !isOrtho);
+  }
+
+  const gridChip = document.getElementById('sb-chip-grid');
+  if (gridChip && gridManager) gridChip.classList.toggle('active', gridManager.visible !== false);
+
+  const snapChip = document.getElementById('sb-chip-snap');
+  if (snapChip && snapManager) {
+    snapChip.classList.toggle('active', !!snapManager.enabled);
+    snapChip.textContent = snapManager.enabled ? `SNAP · ${String(snapManager.snapType || 'grid').toUpperCase()}` : 'SNAP · OFF';
+  }
+}
+
+function _wireStatusChips() {
+  document.getElementById('sb-chip-grid')?.addEventListener('click', () => {
+    if (!gridManager) return;
+    const v = !(gridManager.visible !== false);
+    gridManager.setVisible ? gridManager.setVisible(v) : (gridManager.visible = v);
+    showToast(`Grid: ${v ? 'visible' : 'oculta'}`);
+    updateStatusBar();
+  });
+  document.getElementById('sb-chip-snap')?.addEventListener('click', () => {
+    if (!snapManager) return;
+    setSnapEnabled(!snapManager.enabled);
+
+  });
+  document.getElementById('sb-chip-cam')?.addEventListener('click', () => {
+    const isOrtho = sceneManager?.camera?.type === 'OrthographicCamera';
+    sceneManager.animateCameraTo?.(isOrtho ? 'iso' : 'top');
+  });
 }
 
 // ─── COORD READOUT ─────────────────────────────────────────────
@@ -294,6 +417,14 @@ function wireSnapIndicator() {
   // Updated via mousemove
 }
 
+function setSnapEnabled(enabled) {
+  snapManager.setEnabled(!!enabled);
+  if (!snapManager.enabled) updateSnapIndicator(null);
+  document.getElementById('btn-snap')?.classList.toggle('active', snapManager.enabled);
+  updateStatusBar();
+  showToast(`Snap: ${snapManager.enabled ? 'activo' : 'desactivado'}`);
+}
+
 function updateSnapIndicator(snapType) {
   const si = document.getElementById('snap-indicator');
   const sl = document.getElementById('snap-type-label');
@@ -309,17 +440,30 @@ function updateSnapIndicator(snapType) {
   }
 }
 
-// ─── VIEW CUBE ─────────────────────────────────────────────────
+// ─── NAVIGATION CUBE 3D ─────────────────────────────────────────
 function wireViewCube() {
-  document.querySelectorAll('.vc-label').forEach(lbl => {
-    lbl.addEventListener('click', () => {
-      sceneManager.setCameraView(lbl.dataset.view);
-    });
+  const navCanvas = document.getElementById('nav-cube-canvas');
+  if (navCanvas) {
+    try {
+      navCube = new NavigationCube(navCanvas, sceneManager);
+    } catch (e) {
+      console.warn('NavigationCube init failed:', e);
+    }
+  }
+
+  const homeBtn = document.getElementById('nav-cube-home');
+  homeBtn?.addEventListener('click', () => {
+    sceneManager.fitAll?.();
+    showToast('Fit All');
   });
 }
 
 // ─── RIBBON ────────────────────────────────────────────────────
 function wireRibbon() {
+  ribbon.on('project-new', () => header.onNew?.());
+  ribbon.on('project-open', () => header.onLoad?.());
+  ribbon.on('project-save', () => header.onSave?.());
+  ribbon.on('project-export', () => header.onExport?.());
   // Estructura
   ribbon.on('add-heb-col',  () => createProfile('HEB', '200', 3.0, 'column'));
   ribbon.on('add-hea-col',  () => createProfile('HEA', '200', 3.0, 'column'));
@@ -335,6 +479,8 @@ function wireRibbon() {
   ribbon.on('add-plate',       () => createPlate('base', 0.3, 0.3, 0.02));
   ribbon.on('add-gusset-sq',   () => createPlate('gusset-square', 0.2, 0.2, 0.012));
   ribbon.on('add-gusset-tri',  () => createPlate('gusset-triangle', 0.2, 0.2, 0.012));
+  ribbon.on('add-cleat',       () => createPlate('cleat', 0.1, 0.1, 0.01));
+  ribbon.on('add-neoprene',    () => createPlate('neoprene', 0.15, 0.2, 0.015));
   ribbon.on('tool-weld',       () => setTool('weld'));
 
   // Tornillería
@@ -344,9 +490,12 @@ function wireRibbon() {
   ribbon.on('add-anchor',  () => createFastener('anchor', 'M20'));
   ribbon.on('add-bolt-set', () => {
     const metric = document.getElementById('global-metric-select')?.value || 'M16';
-    createFastener('bolt', metric);
+    const bolt = new Fastener('bolt', metric);
+    sceneManager.addObject(bolt);
+    
     const boltPos = selectTool.selected?.getPosition();
     if (boltPos) {
+      bolt.setPosition(boltPos.x, boltPos.y, boltPos.z);
       const nut = new Fastener('nut', metric);
       const washer = new Fastener('washer', metric);
       sceneManager.addObject(nut);
@@ -354,8 +503,23 @@ function wireRibbon() {
       nut.setPosition(boltPos.x, boltPos.y - 0.07, boltPos.z);
       washer.setPosition(boltPos.x, boltPos.y - 0.075, boltPos.z);
     }
+    selectAndShow(bolt);
+    setTimeout(() => sceneManager.focusOnObject(bolt), 50);
+    pushUndo();
   });
   ribbon.on('array-linear', () => arrayLinearSelected());
+  ribbon.on('array-polar',  () => arrayPolarSelected());
+  ribbon.on('align-x',      () => alignSelected('x'));
+  ribbon.on('align-y',      () => alignSelected('y'));
+  ribbon.on('align-z',      () => alignSelected('z'));
+  ribbon.on('measure-dist', () => { measureTool.setMode?.('distance'); setTool('measure'); });
+  ribbon.on('measure-angle',() => { measureTool.setMode?.('angle');    setTool('measure'); });
+  ribbon.on('measure-area', () => { measureTool.setMode?.('area');     setTool('measure'); });
+  ribbon.on('open-custom-part', () => customPartEditor?.open());
+  ribbon.on('open-render-studio', () => renderStudio?.open());
+  ribbon.on('add-load-point', () => loadManager?.openDialog(selectTool.selected, 'point'));
+  ribbon.on('add-load-distributed', () => loadManager?.openDialog(selectTool.selected, 'distributed'));
+  ribbon.on('add-load-moment', () => loadManager?.openDialog(selectTool.selected, 'moment'));
 
   // Edición
   ribbon.on('tool-select',  () => setTool('select'));
@@ -390,14 +554,8 @@ function wireRibbon() {
   ribbon.on('mode-xray',  () => setVisualMode('xray'));
 
   // Grid / Snap
-  ribbon.on('toggle-snap', () => {
-    snapManager.setEnabled(!snapManager.enabled);
-    const btn = document.getElementById('btn-snap');
-    btn?.classList.toggle('active', snapManager.enabled);
-    const sbSnap = document.getElementById('sb-snap-status');
-    sbSnap?.classList.toggle('active', snapManager.enabled);
-    showToast(`Snap: ${snapManager.enabled ? 'activo' : 'desactivado'}`);
-  });
+  ribbon.on('toggle-snap', () => setSnapEnabled(!snapManager.enabled));
+
   [8, 16, 24, 32].forEach(s => ribbon.on('grid-size-' + s, () => gridManager.setSize(s)));
 }
 
@@ -412,24 +570,40 @@ function wireSidebar() {
   sidebar.on('view-iso',  () => sceneManager.setCameraView('iso'));
   sidebar.on('view-top',  () => sceneManager.setCameraView('top'));
   sidebar.on('view-front',() => sceneManager.setCameraView('front'));
+  sidebar.on('view-left', () => sceneManager.setCameraView('left'));
+  sidebar.on('view-right',() => sceneManager.setCameraView('right'));
+  sidebar.on('select-object', id => {
+    const object = sceneManager.objects.find(item => item.id === id);
+    if (object) selectAndShow(object);
+  });
+  sidebar.on('open-structure-tab', () => document.querySelector('.ribbon-tab[data-tab="estructura"]')?.click());
 }
 
 // ─── HEADER ───────────────────────────────────────────────────
 function wireHeader() {
   header.onThemeToggle = (dark) => {
     darkTheme = dark;
-    document.body.setAttribute('data-theme', dark ? '' : 'light');
+    document.documentElement.setAttribute('data-theme', dark ? '' : 'light');
     sceneManager.setTheme(dark);
+    sectionDrawer?.setTheme?.(!dark);
+    propsPanel?.refresh?.();
   };
   header.onSave = saveProject;
   header.onLoad = loadProject;
   header.onNew = () => {
     if (!confirm('¿Crear nuevo proyecto? Se perderán los cambios no guardados.')) return;
+    proController?.resetTransientState({ refresh: false });
     sceneManager.objects.slice().forEach(o => sceneManager.removeObject(o));
+    loadManager?.clear();
+    selectTool.selectedSet.clear();
     selectTool.selected = null;
+    proController?.visualizer.clear();
     propsPanel.update(null);
     updateMiniTransform(null);
-    updateStatusBar();
+    _currentProjectName = 'Sin título';
+    const nameInput = document.getElementById('project-name-input');
+    if (nameInput) nameInput.value = _currentProjectName;
+    pushUndo();
     showToast('Nuevo proyecto creado.');
   };
   header.onExport = exportProject;
@@ -474,6 +648,7 @@ function wireCanvas() {
 
   canvasEl.addEventListener('click', (e) => {
     if (e.button !== 0) return;
+    if (sceneManager._isDragging || sceneManager._justFinishedDragging) return;
     if (activeTool === 'measure') measureTool.handleClick(e);
     else if (activeTool === 'weld') weldTool.handleClick(e);
     else selectTool.handleClick(e);
@@ -561,10 +736,11 @@ function wireKeyboard() {
       case 's': if (!e.ctrlKey) setTool('scale'); break;
       case 'delete': case 'backspace': deleteSelected(); break;
       case 'f': if (selectTool.selected) sceneManager.focusOnObject(selectTool.selected); break;
-      case '1': sceneManager.setCameraView('iso'); break;
-      case '3': sceneManager.setCameraView('front'); break;
-      case '5': sceneManager.setCameraView('left'); break;
-      case '7': sceneManager.setCameraView('top'); break;
+      case 'home': e.preventDefault(); sceneManager.fitAll?.(); showToast('Fit All'); break;
+      case '1': sceneManager.animateCameraTo ? sceneManager.animateCameraTo('iso') : sceneManager.setCameraView('iso'); break;
+      case '3': sceneManager.animateCameraTo ? sceneManager.animateCameraTo('front') : sceneManager.setCameraView('front'); break;
+      case '5': sceneManager.animateCameraTo ? sceneManager.animateCameraTo('left') : sceneManager.setCameraView('left'); break;
+      case '7': sceneManager.animateCameraTo ? sceneManager.animateCameraTo('top') : sceneManager.setCameraView('top'); break;
     }
   });
 }
@@ -580,6 +756,8 @@ const COMMANDS = [
   { label: 'Añadir Tubo SHS',           icon: 'fa-square',         action: () => createProfile('SHS','100x100x5',3,'column'), group: 'Estructura' },
   { label: 'Añadir Angular L 80×8',     icon: 'fa-building',       action: () => createProfile('L','80x8',2,'beam'),    group: 'Estructura' },
   { label: 'Añadir Placa Base',         icon: 'fa-square',         action: () => createPlate('base'),                    group: 'Conexiones' },
+  { label: 'Añadir Casquillo L',        icon: 'fa-chevron-right',  action: () => createPlate('cleat', 0.1, 0.1, 0.01),   group: 'Conexiones' },
+  { label: 'Añadir Apoyo Neopreno',     icon: 'fa-square',         action: () => createPlate('neoprene', 0.15, 0.2, 0.015),group: 'Conexiones' },
   { label: 'Añadir Tornillo M16',       icon: 'fa-gears',          action: () => createFastener('bolt','M16'),           group: 'Tornillería' },
   { label: 'Duplicar selección',        icon: 'fa-clone',          action: duplicateSelected,   kbd: 'Ctrl+D',           group: 'Edición' },
   { label: 'Eliminar selección',        icon: 'fa-trash-can',      action: deleteSelected,      kbd: 'Del',              group: 'Edición' },
@@ -667,109 +845,281 @@ function wireCommandPalette() {
 }
 
 // ─── UNDO / REDO ──────────────────────────────────────────────
+function captureState() {
+  proController?.resetTransientState({ refresh: false });
+  return sceneManager.objects.map(serializeBIMObject);
+}
+
+function applyState(stateData) {
+  proController?.resetTransientState({ refresh: false });
+  sceneManager.detachGizmo();
+  selectTool.selectedSet.forEach(object => object.setSelected?.(false));
+  selectTool.selectedSet.clear();
+  selectTool.selected = null;
+  restoreProject({ objects: Array.isArray(stateData) ? stateData : [] }, sceneManager);
+  loadManager?.rebuildAll();
+  propsPanel.update(null);
+  updateMiniTransform(null);
+  proController?.visualizer.clear();
+  refreshWorkspace();
+}
+
 function pushUndo() {
-  // Simple object count snapshot (could be expanded to full state)
   _undoStack.splice(_undoPointer + 1);
-  _undoStack.push(sceneManager.objects.length);
+  _undoStack.push(captureState());
+  if (_undoStack.length > 50) _undoStack.shift();
   _undoPointer = _undoStack.length - 1;
+  if (_appSettings.autosave && sceneManager) {
+    try { localStorage.setItem('estructuras-pro:auto', JSON.stringify(_serializeScene())); } catch (_) {}
+  }
+  refreshWorkspace();
 }
 
 function undoAction() {
-  showToast('Deshacer — función en desarrollo', 1500);
+  if (_undoPointer > 0) {
+    _undoPointer--;
+    applyState(_undoStack[_undoPointer]);
+    showToast('Deshacer (Undo)');
+  } else showToast('No hay más acciones para deshacer', 1500);
 }
 
 function redoAction() {
-  showToast('Rehacer — función en desarrollo', 1500);
+  if (_undoPointer < _undoStack.length - 1) {
+    _undoPointer++;
+    applyState(_undoStack[_undoPointer]);
+    showToast('Rehacer (Redo)');
+  } else showToast('No hay acciones para rehacer', 1500);
+}
+
+// ─── CLONE HELPER ──────────────────────────────────────────────
+function _cloneBIM(src) {
+  let dup;
+  if (src.type === 'profile') dup = new Profile(src.params.series, src.params.size, src.params.length, src.params.orientation, src.params);
+  else if (src.type === 'plate') { dup = new Plate(src.params.subtype, src.params.width, src.params.height, src.params.thickness); dup.update(src.params); }
+  else if (src.type === 'fastener') { dup = new Fastener(src.params.subtype, src.params.metric, src.params.shankLength); dup.update(src.params); }
+  else return null;
+  if (src.color) dup.setColor(src.color);
+  if (src.steelGrade) { dup.steelGrade = src.steelGrade; if (dup.type === 'profile') dup.update(dup.params); }
+  dup.mesh.quaternion.copy(src.mesh.quaternion);
+  dup.mesh.scale.copy(src.mesh.scale);
+  return dup;
 }
 
 // ─── ARRAY LINEAR ─────────────────────────────────────────────
-function arrayLinearSelected() {
+async function arrayLinearSelected() {
   const sel = selectTool.selected;
   if (!sel) { showToast('Seleccione un elemento primero.', 2000); return; }
-  const count = parseInt(prompt('¿Cuántas copias? (2-20)', '4') || '0');
-  const spacing = parseFloat(prompt('Separación en X (m):', '1.0') || '0');
-  if (isNaN(count) || count < 1 || isNaN(spacing)) return;
+  const res = await openInputModal('Array Lineal', [
+    { id:'count',   label:'Nº copias (2–20)', value:'4',  type:'number' },
+    { id:'sx',      label:'Separación X (m)', value:'1.0', type:'number' },
+    { id:'sy',      label:'Separación Y (m)', value:'0.0', type:'number' },
+    { id:'sz',      label:'Separación Z (m)', value:'0.0', type:'number' },
+  ]);
+  if (!res) return;
+  const count = Math.max(1, Math.min(20, parseInt(res.count) || 0));
+  const sx = parseFloat(res.sx) || 0, sy = parseFloat(res.sy) || 0, sz = parseFloat(res.sz) || 0;
 
   const pos = sel.getPosition();
   for (let i = 1; i <= count; i++) {
-    let dup;
-    if (sel.type === 'profile') dup = new Profile(sel.params.series, sel.params.size, sel.params.length, sel.params.orientation);
-    else if (sel.type === 'plate') dup = new Plate(sel.params.subtype, sel.params.width, sel.params.height, sel.params.thickness);
-    else if (sel.type === 'fastener') dup = new Fastener(sel.params.subtype, sel.params.metric, sel.params.shankLength);
-    else continue;
-    dup.setColor(sel.color);
-    dup.steelGrade = sel.steelGrade;
+    const dup = _cloneBIM(sel); if (!dup) continue;
     sceneManager.addObject(dup);
-    dup.setPosition(pos.x + spacing * i, pos.y, pos.z);
+    dup.setPosition(pos.x + sx * i, pos.y + sy * i, pos.z + sz * i);
   }
-  showToast(`${count} copias creadas en X con separación ${spacing}m`);
+  showToast(`${count} copias (Array Lineal)`);
   pushUndo();
+}
+
+// ─── ARRAY POLAR ──────────────────────────────────────────────
+async function arrayPolarSelected() {
+  const sel = selectTool.selected;
+  if (!sel) { showToast('Seleccione un elemento primero.', 2000); return; }
+  const res = await openInputModal('Array Polar', [
+    { id:'count', label:'Nº copias (2–36)', value:'6',   type:'number' },
+    { id:'angle', label:'Ángulo total (°)', value:'360', type:'number' },
+    { id:'axis',  label:'Eje (x/y/z)',      value:'y',   type:'text' },
+  ]);
+  if (!res) return;
+  const count = Math.max(2, Math.min(36, parseInt(res.count) || 0));
+  const totalDeg = parseFloat(res.angle) || 360;
+  const axis = (res.axis || 'y').toLowerCase();
+  const step = (totalDeg * Math.PI / 180) / (totalDeg === 360 ? count : (count - 1 || 1));
+
+  const center = sel.getPosition().clone();
+  for (let i = 1; i < count; i++) {
+    const dup = _cloneBIM(sel); if (!dup) continue;
+    sceneManager.addObject(dup);
+    const a = step * i;
+    const cos = Math.cos(a), sin = Math.sin(a);
+    const p = sel.getPosition();
+    const dx = p.x - center.x, dy = p.y - center.y, dz = p.z - center.z;
+    let nx = p.x, ny = p.y, nz = p.z;
+    if (axis === 'y')      { nx = center.x + dx * cos + dz * sin; nz = center.z - dx * sin + dz * cos; dup.mesh.rotation.y = (sel.mesh.rotation.y || 0) + a; }
+    else if (axis === 'x') { ny = center.y + dy * cos - dz * sin; nz = center.z + dy * sin + dz * cos; dup.mesh.rotation.x = (sel.mesh.rotation.x || 0) + a; }
+    else                   { nx = center.x + dx * cos - dy * sin; ny = center.y + dx * sin + dy * cos; dup.mesh.rotation.z = (sel.mesh.rotation.z || 0) + a; }
+    dup.setPosition(nx, ny, nz);
+  }
+  showToast(`${count} copias polares (${totalDeg}° · eje ${axis.toUpperCase()})`);
+  pushUndo();
+}
+
+// ─── ALIGN ────────────────────────────────────────────────────
+function alignSelected(axis) {
+  const pool = (selectTool.selectedSet && selectTool.selectedSet.size > 1)
+    ? Array.from(selectTool.selectedSet)
+    : (selectTool.selected ? [selectTool.selected] : []);
+  if (pool.length < 2) { showToast('Selecciona 2+ objetos (Ctrl+click) para alinear.', 2500); return; }
+  const comp = axis;
+  const vals = pool.map(o => o.getPosition()[comp]);
+  const target = vals.reduce((a, b) => a + b, 0) / vals.length;
+  pool.forEach(o => {
+    const p = o.getPosition();
+    const nx = comp === 'x' ? target : p.x;
+    const ny = comp === 'y' ? target : p.y;
+    const nz = comp === 'z' ? target : p.z;
+    o.setPosition(nx, ny, nz);
+    o.mesh.updateMatrixWorld(true);
+  });
+  showToast(`Alineados ${pool.length} objetos en ${axis.toUpperCase()} = ${target.toFixed(3)}m`);
+  pushUndo();
+}
+
+// ─── INPUT MODAL ──────────────────────────────────────────────
+function openInputModal(title, fields) {
+  return new Promise((resolve) => {
+    let overlay = document.getElementById('input-modal-overlay');
+    if (overlay) overlay.remove();
+    overlay = document.createElement('div');
+    overlay.id = 'input-modal-overlay';
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-card glass-panel">
+        <div class="modal-title">${title}</div>
+        <div class="modal-body">
+          ${fields.map(f => `
+            <label class="modal-row">
+              <span>${f.label}</span>
+              <input type="${f.type||'text'}" id="mod-${f.id}" value="${f.value||''}" />
+            </label>`).join('')}
+        </div>
+        <div class="modal-actions">
+          <button class="btn-secondary" id="mod-cancel">Cancelar</button>
+          <button class="btn-primary" id="mod-ok">Aceptar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const close = (val) => { overlay.remove(); resolve(val); };
+    overlay.querySelector('#mod-cancel').onclick = () => close(null);
+    overlay.querySelector('#mod-ok').onclick = () => {
+      const out = {};
+      fields.forEach(f => { out[f.id] = overlay.querySelector('#mod-'+f.id).value; });
+      close(out);
+    };
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(null); });
+    const first = overlay.querySelector('input');
+    first?.focus(); first?.select();
+    overlay.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') overlay.querySelector('#mod-ok').click();
+      if (e.key === 'Escape') close(null);
+    });
+  });
+}
+
+// ─── AUTOSAVE + RECENTS ───────────────────────────────────────
+function _serializeScene() {
+  proController?.resetTransientState({ refresh: false });
+  return serializeProject(sceneManager.objects, {
+    project: _currentProjectName,
+    settings: { units: document.documentElement.dataset.units || 'metric' },
+  });
+}
+
+function _deserializeScene(data) {
+  if (!data || !Array.isArray(data.objects)) return 0;
+  proController?.resetTransientState({ refresh: false });
+  sceneManager.detachGizmo();
+  selectTool.selectedSet.forEach(object => object.setSelected?.(false));
+  selectTool.selectedSet.clear();
+  selectTool.selected = null;
+  propsPanel.update(null);
+  updateMiniTransform(null);
+  proController?.visualizer.clear();
+  const restored = restoreProject(data, sceneManager);
+  loadManager?.rebuildAll();
+  if (data.project) {
+    _currentProjectName = data.project;
+    const nameInput = document.getElementById('project-name-input');
+    if (nameInput) nameInput.value = data.project;
+  }
+  refreshWorkspace();
+  return restored.length;
+}
+
+function _pushRecent(entry) {
+  try {
+    const list = JSON.parse(localStorage.getItem(RECENTS_KEY) || '[]');
+    const next = [entry, ...list.filter(x => x.project !== entry.project)].slice(0, 5);
+    localStorage.setItem(RECENTS_KEY, JSON.stringify(next));
+  } catch (_) {}
+  _refreshRecentsDropdown();
+}
+
+function _refreshRecentsDropdown() {
+  const el = document.getElementById('recents-dropdown');
+  if (!el) return;
+  const list = JSON.parse(localStorage.getItem(RECENTS_KEY) || '[]');
+  if (!list.length) { el.innerHTML = '<div class="recent-empty">Sin proyectos recientes</div>'; return; }
+  el.innerHTML = list.map((r, i) => `
+    <div class="recent-item" data-idx="${i}">
+      <b>${r.project}</b><span>${new Date(r.date).toLocaleDateString()} · ${r.count} obj.</span>
+    </div>`).join('');
+  el.querySelectorAll('.recent-item').forEach(it => {
+    it.addEventListener('click', () => {
+      const idx = parseInt(it.dataset.idx);
+      const r = list[idx];
+      if (r?.data) { _deserializeScene(r.data); showToast(`Cargado: ${r.project}`); pushUndo(); }
+    });
+  });
 }
 
 // ─── SAVE / LOAD / EXPORT ─────────────────────────────────────
 function saveProject() {
   const projectName = document.getElementById('project-name-input')?.value || 'Sin título';
-  const data = sceneManager.objects.map(o => ({
-    type: o.type, params: o.params,
-    position: o.getPosition().toArray(),
-    rotation: [o.getRotation().x, o.getRotation().y, o.getRotation().z],
-    color: o.color, steelGrade: o.steelGrade,
-  }));
-  const json = JSON.stringify({ version: '3.0', project: projectName, objects: data }, null, 2);
+  _currentProjectName = projectName;
+  const payload = _serializeScene();
+  payload.project = projectName;
+  const json = JSON.stringify(payload, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `${projectName.replace(/\s+/g,'-')}.cometv.json`; a.click();
+  a.href = url; a.download = `${projectName.replace(/\s+/g,'-')}.estructuras-pro.json`; document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
-  showToast(`Guardado: ${projectName}.cometv.json`);
+  _pushRecent({ project: projectName, date: payload.date, count: payload.objects.length, data: payload });
+  showToast(`Guardado: ${projectName}.estructuras-pro.json`);
 }
 
 function loadProject() {
   const input = document.createElement('input');
-  input.type = 'file'; input.accept = '.json,.cometv.json';
-  input.addEventListener('change', async (e) => {
-    const file = e.target.files[0];
+  input.type = 'file';
+  input.accept = '.json,.estructuras-pro.json,.cometv.json,application/json';
+  input.addEventListener('change', async event => {
+    const file = event.target.files?.[0];
     if (!file) return;
     try {
-      const text = await file.text();
-      const data = JSON.parse(text);
-      if (data.project) {
-        const nameInput = document.getElementById('project-name-input');
-        if (nameInput) nameInput.value = data.project;
-      }
-      // Clear scene
-      sceneManager.objects.slice().forEach(o => sceneManager.removeObject(o));
-      // Restore objects
-      (data.objects || []).forEach(item => {
-        let obj;
-        if (item.type === 'profile') {
-          obj = new Profile(item.params.series, item.params.size, item.params.length, item.params.orientation);
-        } else if (item.type === 'plate') {
-          obj = new Plate(item.params.subtype, item.params.width, item.params.height, item.params.thickness);
-        } else if (item.type === 'fastener') {
-          obj = new Fastener(item.params.subtype, item.params.metric, item.params.shankLength);
-        }
-        if (obj) {
-          if (item.color) obj.setColor(item.color);
-          if (item.steelGrade) obj.steelGrade = item.steelGrade;
-          sceneManager.addObject(obj);
-          if (item.position) obj.setPosition(...item.position);
-          if (item.rotation) obj.mesh.rotation.set(...item.rotation);
-        }
-      });
-      showToast(`Proyecto cargado: ${data.project || file.name}`);
-      updateStatusBar();
-    } catch(err) {
-      console.error(err);
-      showToast('Error al cargar el proyecto.', 3000);
+      const data = JSON.parse(await file.text());
+      const count = _deserializeScene(data);
+      _undoStack = [captureState()];
+      _undoPointer = 0;
+      showToast(`Proyecto cargado: ${data.project || file.name} · ${count} objetos`);
+    } catch (error) {
+      console.error(error);
+      showToast('El archivo no contiene un proyecto válido.', 3200);
     }
   });
   input.click();
 }
 
 function exportProject() {
-  saveProject(); // For now just JSON export
-  showToast('Exportado como JSON. OBJ/IFC próximamente.');
+  saveProject();
 }
 
 // ─── TOAST ────────────────────────────────────────────────────
