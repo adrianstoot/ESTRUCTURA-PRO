@@ -1,0 +1,19 @@
+{
+  "version": "2026.08-curated",
+  "source": "Nudos Construccion/Practica 1",
+  "format": "3ds",
+  "loader": "TDSLoader",
+  "normativeContext": ["Código Estructural RD 470/2021", "Anejo 22", "Anejo 26", "CTE DB-SE-A"],
+  "families": [
+    {"id":"portal-base","label":"Arranque y base de pórtico","files":["P1-1.3DS","P1-2.3DS","P1-6.3DS"],"sockets":["flange","web","base-plate"]},
+    {"id":"portal-ridge","label":"Cumbrera y dintel quebrado","files":["P1-7.3DS","P1-8.3DS","P1-9.3DS"],"sockets":["flange","haunch","ridge"]},
+    {"id":"truss-node","label":"Nudos de cercha Polonceau","files":["P1-10.3DS","P1-11.3DS","P1-12.3DS","P1-13.3DS"],"sockets":["gusset","chord","diagonal"]},
+    {"id":"beam-column","label":"Viga-pilar y chapa de testa","files":["P1-14.3DS","P1-15.3DS","P1-17.3DS"],"sockets":["column-flange","column-web","beam-end"]},
+    {"id":"beam-splice","label":"Empalmes y cubrejuntas","files":["P1-18.3DS","P1-20.3DS","P1-21.3DS"],"sockets":["splice-front","splice-back","bolt-grid"]},
+    {"id":"base-foundation","label":"Placas base y anclajes","files":["P1-22.3DS","P1-23.3DS","P1-24.3DS"],"sockets":["base-plate","anchor-grid","stiffener"]}
+  ],
+  "assets": [
+    "P1-1.3DS","P1-2.3DS","P1-6.3DS","P1-7.3DS","P1-8.3DS","P1-9.3DS","P1-10.3DS","P1-11.3DS","P1-12.3DS","P1-13.3DS","P1-14.3DS","P1-15.3DS","P1-17.3DS","P1-18.3DS","P1-20.3DS","P1-21.3DS","P1-22.3DS","P1-23.3DS","P1-24.3DS"
+  ],
+  "baseUrl": "./education/nudos/p1/"
+}
