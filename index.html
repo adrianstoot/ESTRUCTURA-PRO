@@ -9,9 +9,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <script type="module" crossorigin src="./assets/index-3_cbQ6h-.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-DhvXIBbO.css">
+  <link rel="stylesheet" href="./vendor/fontawesome/css/all.min.css">
+  <script type="module" crossorigin src="./assets/index-CU3P5Lm3.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-CEEJuMJ1.css">
 </head>
 <body>
   <!-- COMMAND PALETTE -->
@@ -86,19 +86,32 @@
       <!-- VIEWPORT OVERLAYS -->
       <div id="viewport-mode-badge">TECHNICAL CLAY</div>
 
-      <!-- MINI TRANSFORM WIDGET (shown on selection) -->
-      <div id="mini-transform" class="hidden">
+      <!-- COMPLETE CAD TRANSFORM DOCK (shown on selection) -->
+      <div id="mini-transform" class="hidden" role="toolbar" aria-label="Gizmo de transformación">
+        <span class="mt-caption">GIZMO</span>
         <button class="mt-btn active" data-mode="translate" title="Mover (G)">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18M5 10l-2 2 2 2M19 10l2 2-2 2M10 5l2-2 2 2M10 19l2 2 2-2"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M5 10l-2 2 2 2M19 10l2 2-2 2M10 5l2-2 2 2M10 19l2 2 2-2"/></svg><span>Mover</span>
         </button>
         <button class="mt-btn" data-mode="rotate" title="Rotar (R)">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 1 2.34 5.66"/><path d="M4 19v-4h4"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 1 2.34 5.66M4 19v-4h4"/></svg><span>Rotar</span>
         </button>
         <button class="mt-btn" data-mode="scale" title="Escalar (S)">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21v-6M3 21h6M21 3v6M21 3h-6M14 10l7-7M10 14l-7 7"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M3 21v-6M3 21h6M21 3v6M21 3h-6M14 10l7-7M10 14l-7 7"/></svg><span>Escala</span>
         </button>
-        <div class="mt-sep"></div>
-        <button class="mt-btn" id="mt-local-global" title="Coordenadas Locales/Globales"><span class="mt-coord-label">GLB</span></button>
+        <i class="mt-sep"></i>
+        <button class="mt-btn mt-text" id="mt-local-global" title="Coordenadas Locales/Globales"><span class="mt-coord-label">GLB</span></button>
+        <button class="mt-btn mt-text active" id="mt-snap-toggle" title="Snap incremental"><span>SNAP</span></button>
+        <i class="mt-sep"></i>
+        <button class="mt-btn mt-axis x active" data-axis="x" title="Mostrar eje X"><span>X</span></button>
+        <button class="mt-btn mt-axis y active" data-axis="y" title="Mostrar eje Y"><span>Y</span></button>
+        <button class="mt-btn mt-axis z active" data-axis="z" title="Mostrar eje Z"><span>Z</span></button>
+        <i class="mt-sep"></i>
+        <button class="mt-btn" id="mt-reset-transform" title="Restablecer transformación">
+          <svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7M4 4v6h6"/></svg><span>Reset</span>
+        </button>
+        <button class="mt-btn" id="mt-fit-selection" title="Centrar cámara en selección">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5"/></svg><span>Centrar</span>
+        </button>
       </div>
 
       <!-- SNAP INDICATOR -->
@@ -138,7 +151,7 @@
         <span class="sb-sep">|</span>
         <span id="sb-coords">0.000 · 0.000 · 0.000 m</span>
         <span class="sb-sep">|</span>
-        <span id="sb-version">v6.0 · CE · A22/A26</span>
+        <span id="sb-version">v6.1 · AULA ETSIE · CE</span>
       </div>
     </div>
   </div>

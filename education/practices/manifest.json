@@ -1,0 +1,853 @@
+{
+  "schemaVersion": 1,
+  "source": "analysis/practice_pages",
+  "targetWidth": 1100,
+  "encoding": {
+    "format": "webp",
+    "quality": 86
+  },
+  "totalImages": 70,
+  "totalBytes": 6524968,
+  "pages": [
+    {
+      "practice": 1,
+      "page": 1,
+      "path": "./p1/page-01.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": "cover",
+      "bytes": 101388
+    },
+    {
+      "practice": 1,
+      "page": 2,
+      "path": "./p1/page-02.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 91846
+    },
+    {
+      "practice": 1,
+      "page": 3,
+      "path": "./p1/page-03.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 82404
+    },
+    {
+      "practice": 1,
+      "page": 4,
+      "path": "./p1/page-04.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 57620
+    },
+    {
+      "practice": 1,
+      "page": 5,
+      "path": "./p1/page-05.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 95352
+    },
+    {
+      "practice": 1,
+      "page": 6,
+      "path": "./p1/page-06.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 32960
+    },
+    {
+      "practice": 1,
+      "page": 7,
+      "path": "./p1/page-07.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 271808
+    },
+    {
+      "practice": 1,
+      "page": 8,
+      "path": "./p1/page-08.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 19138
+    },
+    {
+      "practice": 1,
+      "page": 9,
+      "path": "./p1/page-09.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 157700
+    },
+    {
+      "practice": 2,
+      "page": 1,
+      "path": "./p2/page-01.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": "cover",
+      "bytes": 82474
+    },
+    {
+      "practice": 2,
+      "page": 2,
+      "path": "./p2/page-02.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 103202
+    },
+    {
+      "practice": 2,
+      "page": 3,
+      "path": "./p2/page-03.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 79440
+    },
+    {
+      "practice": 2,
+      "page": 4,
+      "path": "./p2/page-04.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 99000
+    },
+    {
+      "practice": 2,
+      "page": 5,
+      "path": "./p2/page-05.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 100468
+    },
+    {
+      "practice": 2,
+      "page": 6,
+      "path": "./p2/page-06.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 100774
+    },
+    {
+      "practice": 2,
+      "page": 7,
+      "path": "./p2/page-07.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 16404
+    },
+    {
+      "practice": 2,
+      "page": 8,
+      "path": "./p2/page-08.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 265292
+    },
+    {
+      "practice": 2,
+      "page": 9,
+      "path": "./p2/page-09.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 157700
+    },
+    {
+      "practice": 2,
+      "page": 10,
+      "path": "./p2/page-10.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 210858
+    },
+    {
+      "practice": 2,
+      "page": 11,
+      "path": "./p2/page-11.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 53928
+    },
+    {
+      "practice": 2,
+      "page": 12,
+      "path": "./p2/page-12.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 133432
+    },
+    {
+      "practice": 2,
+      "page": 13,
+      "path": "./p2/page-13.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 48286
+    },
+    {
+      "practice": 2,
+      "page": 14,
+      "path": "./p2/page-14.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 49916
+    },
+    {
+      "practice": 2,
+      "page": 15,
+      "path": "./p2/page-15.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 52520
+    },
+    {
+      "practice": 2,
+      "page": 16,
+      "path": "./p2/page-16.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 40492
+    },
+    {
+      "practice": 2,
+      "page": 17,
+      "path": "./p2/page-17.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 40890
+    },
+    {
+      "practice": 2,
+      "page": 18,
+      "path": "./p2/page-18.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 179404
+    },
+    {
+      "practice": 2,
+      "page": 19,
+      "path": "./p2/page-19.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 67916
+    },
+    {
+      "practice": 2,
+      "page": 20,
+      "path": "./p2/page-20.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 110262
+    },
+    {
+      "practice": 2,
+      "page": 21,
+      "path": "./p2/page-21.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 49246
+    },
+    {
+      "practice": 2,
+      "page": 22,
+      "path": "./p2/page-22.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 25764
+    },
+    {
+      "practice": 2,
+      "page": 23,
+      "path": "./p2/page-23.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 40186
+    },
+    {
+      "practice": 2,
+      "page": 24,
+      "path": "./p2/page-24.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 58882
+    },
+    {
+      "practice": 2,
+      "page": 25,
+      "path": "./p2/page-25.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 56410
+    },
+    {
+      "practice": 2,
+      "page": 26,
+      "path": "./p2/page-26.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 84488
+    },
+    {
+      "practice": 2,
+      "page": 27,
+      "path": "./p2/page-27.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 130166
+    },
+    {
+      "practice": 2,
+      "page": 28,
+      "path": "./p2/page-28.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 92086
+    },
+    {
+      "practice": 2,
+      "page": 29,
+      "path": "./p2/page-29.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 27910
+    },
+    {
+      "practice": 3,
+      "page": 1,
+      "path": "./p3/page-01.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": "cover",
+      "bytes": 108028
+    },
+    {
+      "practice": 3,
+      "page": 2,
+      "path": "./p3/page-02.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 106622
+    },
+    {
+      "practice": 3,
+      "page": 3,
+      "path": "./p3/page-03.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 96994
+    },
+    {
+      "practice": 3,
+      "page": 4,
+      "path": "./p3/page-04.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 70380
+    },
+    {
+      "practice": 3,
+      "page": 5,
+      "path": "./p3/page-05.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 19082
+    },
+    {
+      "practice": 3,
+      "page": 6,
+      "path": "./p3/page-06.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 81340
+    },
+    {
+      "practice": 3,
+      "page": 7,
+      "path": "./p3/page-07.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 25196
+    },
+    {
+      "practice": 3,
+      "page": 8,
+      "path": "./p3/page-08.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 267092
+    },
+    {
+      "practice": 3,
+      "page": 9,
+      "path": "./p3/page-09.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 157700
+    },
+    {
+      "practice": 3,
+      "page": 10,
+      "path": "./p3/page-10.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 217116
+    },
+    {
+      "practice": 3,
+      "page": 11,
+      "path": "./p3/page-11.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 73794
+    },
+    {
+      "practice": 3,
+      "page": 12,
+      "path": "./p3/page-12.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 92226
+    },
+    {
+      "practice": 3,
+      "page": 13,
+      "path": "./p3/page-13.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 66716
+    },
+    {
+      "practice": 3,
+      "page": 14,
+      "path": "./p3/page-14.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 71414
+    },
+    {
+      "practice": 3,
+      "page": 15,
+      "path": "./p3/page-15.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 126188
+    },
+    {
+      "practice": 3,
+      "page": 16,
+      "path": "./p3/page-16.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 148668
+    },
+    {
+      "practice": 3,
+      "page": 17,
+      "path": "./p3/page-17.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 89664
+    },
+    {
+      "practice": 3,
+      "page": 18,
+      "path": "./p3/page-18.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 135306
+    },
+    {
+      "practice": 3,
+      "page": 19,
+      "path": "./p3/page-19.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 47284
+    },
+    {
+      "practice": 3,
+      "page": 20,
+      "path": "./p3/page-20.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 81206
+    },
+    {
+      "practice": 3,
+      "page": 21,
+      "path": "./p3/page-21.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 100124
+    },
+    {
+      "practice": 3,
+      "page": 22,
+      "path": "./p3/page-22.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 97468
+    },
+    {
+      "practice": 3,
+      "page": 23,
+      "path": "./p3/page-23.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 108738
+    },
+    {
+      "practice": 3,
+      "page": 24,
+      "path": "./p3/page-24.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 79642
+    },
+    {
+      "practice": 3,
+      "page": 25,
+      "path": "./p3/page-25.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 56640
+    },
+    {
+      "practice": 3,
+      "page": 26,
+      "path": "./p3/page-26.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 99038
+    },
+    {
+      "practice": 3,
+      "page": 27,
+      "path": "./p3/page-27.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 90338
+    },
+    {
+      "practice": 3,
+      "page": 28,
+      "path": "./p3/page-28.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 58306
+    },
+    {
+      "practice": 3,
+      "page": 29,
+      "path": "./p3/page-29.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 89844
+    },
+    {
+      "practice": 3,
+      "page": 30,
+      "path": "./p3/page-30.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 40666
+    },
+    {
+      "practice": 3,
+      "page": 31,
+      "path": "./p3/page-31.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 147040
+    },
+    {
+      "practice": 3,
+      "page": 32,
+      "path": "./p3/page-32.webp",
+      "dimensions": {
+        "width": 1100,
+        "height": 1556
+      },
+      "mimeType": "image/webp",
+      "visualType": null,
+      "bytes": 7096
+    }
+  ]
+}
