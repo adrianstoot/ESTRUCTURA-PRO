@@ -10,8 +10,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
   <link rel="stylesheet" href="./vendor/fontawesome/css/all.min.css">
-  <script type="module" crossorigin src="./assets/index-N3avuecL.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-z5o8b826.css">
+  <script type="module" crossorigin src="./assets/index-DfLvzcrf.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BmaN4nzR.css">
 </head>
 <body>
   <!-- COMMAND PALETTE -->
@@ -119,6 +119,11 @@
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v10a7 7 0 0 0 14 0V3"/><path d="M5 8h4M15 8h4M5 3h4M15 3h4"/></svg>
         <span id="snap-type-label">GRID</span>
       </div>
+
+      <!-- TOOL MODE EXIT: never leave a laser, preview or measurement mode armed. -->
+      <button id="tool-mode-escape" class="hidden" type="button" title="Salir de la herramienta activa">
+        <span aria-hidden="true">×</span><b>Salir de herramienta</b>
+      </button>
 
       <!-- COORD READOUT -->
       <div id="coord-readout">
