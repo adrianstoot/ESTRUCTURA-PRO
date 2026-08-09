@@ -1,6 +1,6 @@
 {
   "version": "2026.08-curated",
-  "source": "Nudos Construccion/Practica 1",
+  "source": "Nudos Construccion/Practicas 1–3",
   "format": "3ds",
   "loader": "TDSLoader",
   "normativeContext": ["Código Estructural RD 470/2021", "Anejo 22", "Anejo 26", "CTE DB-SE-A"],
@@ -11,7 +11,10 @@
     {"id":"beam-column","label":"Viga-pilar y chapa de testa","files":["P1-14.3DS","P1-15.3DS","P1-17.3DS"],"sockets":["column-flange","column-web","beam-end"]},
     {"id":"beam-splice","label":"Empalmes y cubrejuntas","files":["P1-18.3DS","P1-20.3DS","P1-21.3DS"],"sockets":["splice-front","splice-back","bolt-grid"]},
     {"id":"base-foundation","label":"Placas base y anclajes","files":["P1-22.3DS","P1-23.3DS","P1-24.3DS"],"sockets":["base-plate","anchor-grid","stiffener"]}
+    ,{"id":"practice-2-joints","label":"Práctica 2 · Uniones docentes","practice":2,"files":["p2/P2-A1.3DS","p2/P2-A2.3DS","p2/P2-A3.3DS","p2/P2-B1-A.3DS","p2/P2-B1-B.3DS","p2/P2-C1.3DS","p2/P2-C2.3DS","p2/P2-D1.3DS"],"sockets":["web","flange","gusset","bolt-grid","weld-line"]}
+    ,{"id":"practice-3-portals","label":"Práctica 3 · Pórticos y detalles","practice":3,"files":["p3/P3-1.3DS","p3/P3-2.3DS","p3/P3-3.3DS","p3/P3-10.3DS","p3/P3-20.3DS","p3/P3-29.3DS","p3/P3-POLONCEAU COMPUESTA.3DS"],"sockets":["column","beam","ridge","truss","deck","base-plate"]}
   ],
+  "additionalAssets": ["p2/P2-A1.3DS","p2/P2-A2.3DS","p2/P2-A3.3DS","p2/P2-B1-A.3DS","p2/P2-B1-B.3DS","p2/P2-C1.3DS","p2/P2-C2.3DS","p2/P2-D1.3DS","p3/P3-1.3DS","p3/P3-2.3DS","p3/P3-3.3DS","p3/P3-10.3DS","p3/P3-20.3DS","p3/P3-29.3DS","p3/P3-POLONCEAU COMPUESTA.3DS"],
   "assets": [
     "P1-1.3DS","P1-2.3DS","P1-6.3DS","P1-7.3DS","P1-8.3DS","P1-9.3DS","P1-10.3DS","P1-11.3DS","P1-12.3DS","P1-13.3DS","P1-14.3DS","P1-15.3DS","P1-17.3DS","P1-18.3DS","P1-20.3DS","P1-21.3DS","P1-22.3DS","P1-23.3DS","P1-24.3DS"
   ],
