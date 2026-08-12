@@ -1,0 +1,29 @@
+{
+  "source": "260527_CIV_L3_SISTEMAS ESTRUCTURALES__REALIDAD VIRTUAL-AUMENTADA.pptx.pdf",
+  "pages": 58,
+  "type": "PDF",
+  "generatedAt": "2026-08-10",
+  "groups": {
+    "tables": [
+      { "id": "civ-l3-table-03", "page": 3, "asset": "source-page-03.webp", "title": "Catálogo de perfiles y símbolos" },
+      { "id": "civ-l3-table-04", "page": 4, "asset": "source-page-04.webp", "title": "Tabla 2.A1.1 · Perfiles IPN / IPE" },
+      { "id": "civ-l3-table-05", "page": 5, "asset": "source-page-05.webp", "title": "Perfiles H y U" },
+      { "id": "civ-l3-table-06", "page": 6, "asset": "source-page-06.webp", "title": "Angulares y perfiles auxiliares" }
+    ],
+    "photos": [
+      { "id": "civ-l3-photo-23-bolted", "page": 23, "asset": "photo-joint-bolted-page-23.webp" },
+      { "id": "civ-l3-photo-23-welded", "page": 23, "asset": "photo-joint-welded-page-23.webp" },
+      { "id": "civ-l3-photo-24-detail", "page": 24, "asset": "photo-joint-detail-page-24.webp" },
+      { "id": "civ-l3-photo-28-rigid", "page": 28, "asset": "photo-rigid-node-page-28.webp" },
+      { "id": "civ-l3-photo-29-rigid", "page": 29, "asset": "photo-rigid-node-page-29.webp" },
+      { "id": "civ-l3-photo-31-continuous", "page": 31, "asset": "photo-continuous-beam-page-31.webp" },
+      { "id": "civ-l3-photo-35-truss", "page": 35, "asset": "photo-truss-page-35.webp" }
+    ],
+    "attachments": [
+      { "id": "civ-l3-photo-attached-welded", "asset": "photo-attachment-welded.jpg", "source": "fhnfhnh.JPG", "title": "Nudo soldado · referencia de obra" },
+      { "id": "civ-l3-photo-attached-bolted", "asset": "photo-attachment-bolted.jpg", "source": "nhgn.JPG", "title": "Nudo atornillado · referencia de obra" }
+    ],
+    "notes": [13, 14, 18, 21, 27, 31, 37, 40, 44, 47, 51, 57]
+  },
+  "traceability": "Cada ficha conserva página del PDF; las reglas históricas se muestran con advertencia de contraste normativo."
+}
