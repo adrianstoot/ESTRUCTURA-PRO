@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { workshopMaterial, applyWorkshopStyle } from '../core/WorkshopMaterial.js';
 
 let _idCounter = 0;
 
@@ -19,42 +20,31 @@ export class BIMElement {
     this.tw = 0;
     this.tf = 0;
     this.engineeringData = null;
-    this.analysisInput = null;
-    this.analysisResults = null;
     this._isSelected = false;
     this._originalMaterials = new Map();
   }
 
   createMaterial(colorHex) {
-    const color = new THREE.Color(colorHex);
-    return new THREE.MeshStandardMaterial({
-      color,
-      roughness: 0.44,
-      metalness: 0.76,
-      envMapIntensity: 0.9,
-    });
+    return workshopMaterial(colorHex);
   }
 
   buildMesh() { /* Override */ }
 
   updateMesh() {
     if (!this.mesh) return;
-    const parent = this.mesh.parent;
-    const pos = this.mesh.position.clone();
-    const rot = this.mesh.rotation.clone();
-    if (parent) parent.remove(this.mesh);
+    const root = this.mesh;
+    const pos = root.position.clone(), q = root.quaternion.clone(), scale = root.scale.clone(), visible = root.visible;
     this._disposeMesh();
     this.buildMesh();
-    if (this.mesh) {
-      this.mesh.position.copy(pos);
-      if (this.params.orientation !== 'column') {
-        this.mesh.rotation.copy(rot);
-      } else {
-        this.mesh.rotation.y = rot.y;
-        this.mesh.rotation.z = rot.z;
-      }
-      if (parent) parent.add(this.mesh);
-    }
+    const next=this.mesh;
+    root.clear();
+    if(root.isMesh) {root.geometry=next.geometry;root.material=next.material;}
+    if(next.children.length) root.add(...next.children.slice());
+    root.name=next.name; root.userData=next.userData;
+    root.position.copy(pos); root.quaternion.copy(q); root.scale.copy(scale);root.visible=visible;
+    this.mesh=root;
+    root.updateMatrixWorld(true);
+    applyWorkshopStyle(this);
   }
 
   _disposeMesh() {
@@ -79,46 +69,9 @@ export class BIMElement {
     };
   }
 
-  setSelected(selected) {
-    this._isSelected = selected;
-    if (!this.mesh) return;
-    this.mesh.traverse(child => {
-      if (!child.isMesh) return;
-      if (selected) {
-        if (!this._originalMaterials.has(child.uuid)) {
-          this._originalMaterials.set(child.uuid, {
-            emissive: child.material.emissive ? child.material.emissive.clone() : new THREE.Color(0),
-            emissiveIntensity: child.material.emissiveIntensity || 0,
-          });
-        }
-        child.material.emissive = new THREE.Color(0x4488ff);
-        child.material.emissiveIntensity = 0.25;
-      } else {
-        const orig = this._originalMaterials.get(child.uuid);
-        if (orig) {
-          child.material.emissive.copy(orig.emissive);
-          child.material.emissiveIntensity = orig.emissiveIntensity;
-        }
-      }
-    });
-  }
+  setSelected(selected) { this._isSelected = selected; applyWorkshopStyle(this); }
 
-  setColor(colorHex) {
-    this.color = colorHex;
-    if (!this.mesh) return;
-    const col = new THREE.Color(colorHex);
-    this.mesh.traverse(child => {
-      if (child.isMesh && child.material && child.material.color) {
-        child.material.color.copy(col);
-        child.material.needsUpdate = true;
-        // Update originals so deselect doesn't revert
-        this._originalMaterials.set(child.uuid, {
-          emissive: child.material.emissive ? child.material.emissive.clone() : new THREE.Color(0),
-          emissiveIntensity: child.material.emissiveIntensity || 0,
-        });
-      }
-    });
-  }
+  setColor(colorHex) { this.color = colorHex; applyWorkshopStyle(this); }
 
   getPosition() {
     return this.mesh ? this.mesh.position : new THREE.Vector3();
@@ -150,6 +103,7 @@ export class BIMElement {
         THREE.MathUtils.degToRad(degY),
         THREE.MathUtils.degToRad(degZ)
       );
+      this.mesh.updateMatrixWorld(true);
     }
   }
 

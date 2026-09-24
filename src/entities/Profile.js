@@ -3,14 +3,10 @@ import { BIMElement } from './BIMElement.js';
 import { getProfileData, getEngineeringData, SERIES_LIST } from './ProfileCatalog.js';
 
 /**
- * Profile v3.2 — Geometría de precisión normativa.
- *
- * Cada perfil se construye con ExtrudeGeometry a partir de un Shape 2D
- * que representa la sección transversal EXACTA según el catálogo:
- *   - h, b, tw, tf, r: dimensiones reales en mm → convertidas a metros
- *   - Radio de acuerdo r en los 4 filetes alma-ala (cuartos de círculo reales)
- *   - Bisel de borde (bevelEnabled) para calidad visual de arista
- *   - Sin solapamientos, sin artefactos
+ * Perfil paramétrico a partir del catálogo local.
+ * IPE/HEA/HEB conservan las dimensiones nominales y radios tabulados.
+ * IPN/UPN: caras interiores simplificadas paralelas; L/SHS: radios aproximados.
+ * La triangulación es una representación visual, no una certificación de fabricación.
  *
  * Sistema de ejes de la extrusión:
  *   X = ancho (b), Y = alto (h), Z = longitud (L)
@@ -28,6 +24,11 @@ export class Profile extends BIMElement {
       templateInstanceId: options.templateInstanceId || null,
       detailLevel: options.detailLevel || 'standard',
       endTreatment: options.endTreatment || 'square-cut',
+      drillings: options.drillings || [],
+      webDrillings: options.webDrillings || [],
+      endSlots: options.endSlots || null,
+      endCutStart: options.endCutStart || null,
+      endCutEnd: options.endCutEnd || null,
     });
     this._computeProperties();
     this.buildMesh();
@@ -42,6 +43,7 @@ export class Profile extends BIMElement {
     this.tw            = eng.tw;
     this.tf            = eng.tf;
     this.engineeringData = eng;
+    this.params.geometryProvenance=["IPN","UPN"].includes(this.params.series)?"Sección simplificada: pendiente interior de alas pendiente de catalogar.":["L","SHS"].includes(this.params.series)?"Dimensiones nominales de catálogo; radios de esquina aproximados.":"Dimensiones nominales del catálogo local; superficie triangulada.";
   }
 
   buildMesh() {
@@ -60,7 +62,17 @@ export class Profile extends BIMElement {
     else if (series === 'SHS') this._buildSHS(sectionGroup, data, L, mat);
     else if (series === 'L')   this._buildAngle(sectionGroup, data, L, mat);
     else if (series === 'UPN') this._buildChannel(sectionGroup, data, L, mat);
+    else if(this.params.drillings?.length||this.params.webDrillings?.length) this._buildDrilledISection(sectionGroup,data,L,mat);
     else                        this._buildISection(sectionGroup, data, L, mat);
+
+    for(const key of ['endCutStart','endCutEnd']) {
+      const cut=this.params[key];if(!cut)continue;
+      const [nx,ny,nz]=cut.normal;if(Math.abs(nz)<1e-8)continue;
+      sectionGroup.traverse(child=>{if(!child.isMesh)return;const attr=child.geometry.attributes.position;
+        for(let i=0;i<attr.count;i++){const z=attr.getZ(i);if((key==='endCutStart'&&z<-L/2+1e-5)||(key==='endCutEnd'&&z>L/2-1e-5))attr.setZ(i,(-cut.constant-nx*attr.getX(i)-ny*attr.getY(i))/nz);}
+        attr.needsUpdate=true;child.geometry.computeVertexNormals();child.geometry.computeBoundingBox();child.geometry.computeBoundingSphere();
+      });
+    }
 
     sectionGroup.traverse(child => {
       if (!child.isMesh) return;
@@ -69,9 +81,7 @@ export class Profile extends BIMElement {
     });
 
     // Roll angle is applied around the longitudinal local Z axis.
-    const roll = [0, 90, 180, 270].includes(Number(this.params.sectionRotation))
-      ? Number(this.params.sectionRotation)
-      : 0;
+    const roll = Number(this.params.sectionRotation) || 0;
     sectionGroup.rotation.z = THREE.MathUtils.degToRad(roll);
     this._applyInsertionOffset(sectionGroup, data);
     group.add(sectionGroup);
@@ -119,7 +129,7 @@ export class Profile extends BIMElement {
    */
   _extrude(shape, L, mat, curveSegments = 4, bevelSize = 0.0006) {
     const bevel = Math.min(Math.max(0, bevelSize), Math.max(0, L * 0.01));
-    const useBevel = this.params.detailLevel !== 'performance' && bevel > 0 && L > bevel * 4;
+    const useBevel = false; // Catalogue envelope must not grow by a cosmetic bevel.
     const geo = new THREE.ExtrudeGeometry(shape, {
       depth:           L,
       bevelEnabled:    useBevel,
@@ -322,6 +332,14 @@ export class Profile extends BIMElement {
     const t  =  dims.t / 1000;
     const ri =  Math.max(ro - t, 0.001);
 
+    if(this.params.endSlots){
+      const depth=Math.min(L/3,this.params.endSlots.depth||.16),gap=(this.params.endSlots.width||.013)/2;
+      if(gap>=ri)throw new Error('La ranura supera el diámetro interior del tubo.');
+      const full=new THREE.Shape();full.absarc(0,0,ro,0,2*Math.PI,false);const hole=new THREE.Path();hole.absarc(0,0,ri,0,2*Math.PI,true);full.holes.push(hole);group.add(this._extrude(full,L-2*depth,mat,32,0));
+      for(const half of[-1,1]){const points=[],ao=Math.acos(gap/ro),ai=Math.acos(gap/ri);for(let i=0;i<=48;i++){const a=-ao+2*ao*i/48;points.push(new THREE.Vector2(half*ro*Math.cos(a),ro*Math.sin(a)));}for(let i=48;i>=0;i--){const a=-ai+2*ai*i/48;points.push(new THREE.Vector2(half*ri*Math.cos(a),ri*Math.sin(a)));}for(const end of[-1,1]){const solid=this._extrude(new THREE.Shape(points),depth,mat.clone(),8,0);solid.geometry.translate(0,0,end*(L-depth)/2);group.add(solid);}}
+      return;
+    }
+
     const outer = new THREE.Shape();
     outer.absarc(0, 0, ro, 0, Math.PI * 2, false);
     const hole = new THREE.Path();
@@ -371,6 +389,27 @@ export class Profile extends BIMElement {
     const mesh = new THREE.Mesh(geo, mat);
     mesh.castShadow = mesh.receiveShadow = true;
     group.add(mesh);
+  }
+
+  _buildDrilledISection(group,d,L,mat) {
+    const h=d.h/1000,b=d.b/1000,tw=d.tw/1000,tf=d.tf/1000,r=(d.r||0)/1000,Y=h/2-tf,B=tw/2+r;
+    if(this.params.webDrillings?.length){
+      const web=new THREE.Shape([new THREE.Vector2(-L/2,-Y),new THREE.Vector2(L/2,-Y),new THREE.Vector2(L/2,Y),new THREE.Vector2(-L/2,Y)]);
+      for(const hole of this.params.webDrillings){const path=new THREE.Path();path.absarc(-hole.z,hole.y,hole.radius,0,Math.PI*2,true);web.holes.push(path);}
+      const geo=new THREE.ExtrudeGeometry(web,{depth:tw,bevelEnabled:false,curveSegments:16});geo.translate(0,0,-tw/2);geo.rotateY(Math.PI/2);group.add(new THREE.Mesh(geo,mat));
+      if(r)for(const sx of[-1,1])for(const sy of[-1,1]){const points=[new THREE.Vector2(sx*tw/2,sy*Y)];for(let i=0;i<=16;i++){const a=i*Math.PI/32;points.push(new THREE.Vector2(sx*(tw/2+r-r*Math.sin(a)),sy*(Y-r+r*Math.cos(a))));}group.add(this._extrude(new THREE.Shape(points),L,mat.clone(),8,0));}
+    }else{
+    const shape=new THREE.Shape();shape.moveTo(-B,Y);shape.lineTo(B,Y);
+    if(r)shape.absarc(B,Y-r,r,Math.PI/2,Math.PI,false);else shape.lineTo(tw/2,Y);
+    shape.lineTo(tw/2,-Y+r);if(r)shape.absarc(B,-Y+r,r,Math.PI,Math.PI*1.5,false);
+    shape.lineTo(-B,-Y);if(r)shape.absarc(-B,-Y+r,r,-Math.PI/2,0,false);else shape.lineTo(-tw/2,-Y);
+    shape.lineTo(-tw/2,Y-r);if(r)shape.absarc(-B,Y-r,r,0,Math.PI/2,false);shape.closePath();group.add(this._extrude(shape,L,mat,12,0));
+    }
+    for(const side of [-1,1]) {
+      const flange=new THREE.Shape();flange.moveTo(-b/2,-L/2);flange.lineTo(b/2,-L/2);flange.lineTo(b/2,L/2);flange.lineTo(-b/2,L/2);flange.closePath();
+      for(const drill of this.params.drillings.filter(d=>d.side===side)) {const hole=new THREE.Path();hole.absarc(drill.x,-drill.z,drill.radius,0,Math.PI*2,true);flange.holes.push(hole);}
+      const g=new THREE.ExtrudeGeometry(flange,{depth:tf,bevelEnabled:false,curveSegments:16});g.translate(0,0,-tf/2);g.rotateX(-Math.PI/2);g.translate(0,side*(h/2-tf/2),0);group.add(new THREE.Mesh(g,mat.clone()));
+    }
   }
 
   update(params) {

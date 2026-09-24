@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import { applyWorkshopStyle } from './WorkshopMaterial.js';
 
 /**
  * SceneManager v4.0 — Rewritten for Three.js r183+
@@ -28,20 +29,20 @@ export class SceneManager {
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(container.clientWidth, container.clientHeight);
-    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.enabled = false;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMapping = THREE.NoToneMapping;
     this.renderer.toneMappingExposure = 1.6;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(this.renderer.domElement);
 
     // ── Scene ────────────────────────────────────────────────
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xcbd5dc);
+    this.scene.background = new THREE.Color(0xf2f4f5);
 
     // ── Cameras ───────────────────────────────────────────────
     const aspect = container.clientWidth / container.clientHeight;
-    this.perspCamera = new THREE.PerspectiveCamera(45, aspect, 0.01, 2000);
+    this.perspCamera = new THREE.PerspectiveCamera(45, aspect, 0.0001, 2000);
     this.perspCamera.position.set(8, 6, 10);
     this.perspCamera.lookAt(0, 0, 0);
 
@@ -59,28 +60,29 @@ export class SceneManager {
     this._baseFrustumSize = frustumSize;
 
     // ── Lights ───────────────────────────────────────────────
-    this._setupLights();
 
     // ── Environment (for PBR reflections) ────────────────────
-    this._setupEnvironment();
-    this._loadSteelTexture();
 
     // ── Orbit Controls ───────────────────────────────────────
     this.orbitControls = new OrbitControls(this.camera, this.renderer.domElement);
     this.orbitControls.enableDamping = true;
     this.orbitControls.dampingFactor = 0.08;
-    this.orbitControls.minDistance = 0.1;
+    this.orbitControls.minDistance = 0.002;
     this.orbitControls.maxDistance = 600;
     this.orbitControls.screenSpacePanning = true;
-    this.orbitControls.zoomSpeed = 2.5; // Mejorado para más agilidad
-    this.orbitControls.panSpeed = 1.2;
+    this.orbitControls.zoomSpeed = 0.8;
+    this.orbitControls.zoomToCursor = true;
+    this.orbitControls.panSpeed = 0.8;
     this.orbitControls.rotateSpeed = 0.8;
+    this.renderer.domElement.addEventListener('wheel',event=>this.zoomAtPointer(event),{capture:true,passive:false});
 
     // ── Transform Controls — r183+ API ───────────────────────
     // In r183+, TransformControls extends Controls (NOT Object3D).
     // getHelper() returns this._root which IS an Object3D → add that to scene.
     this.transformControls = new TransformControls(this.camera, this.renderer.domElement);
     this.transformControls.setSize(0.55);
+    this.transformControls.setTranslationSnap(0.001);
+    this.transformControls.setRotationSnap(THREE.MathUtils.degToRad(1));
     this.scene.add(this.transformControls.getHelper());
 
     this.transformControls.addEventListener('mouseDown', () => {
@@ -114,164 +116,25 @@ export class SceneManager {
     this._animate();
   }
 
-  // ─── LIGHTS ──────────────────────────────────────────────────
-  _setupLights() {
-    this.hemiLight = new THREE.HemisphereLight(0xb0c4dd, 0x404858, 0.9);
-    this.scene.add(this.hemiLight);
-
-    this.ambientLight = new THREE.AmbientLight(0xc0c8d8, 0.7);
-    this.scene.add(this.ambientLight);
-
-    this.dirLight = new THREE.DirectionalLight(0xfff8f0, 2.2);
-    this.dirLight.position.set(10, 18, 12);
-    this.dirLight.castShadow = true;
-    this.dirLight.shadow.mapSize.set(2048, 2048);
-    this.dirLight.shadow.camera.near = 0.5;
-    this.dirLight.shadow.camera.far = 100;
-    this.dirLight.shadow.camera.left = -20;
-    this.dirLight.shadow.camera.right = 20;
-    this.dirLight.shadow.camera.top = 20;
-    this.dirLight.shadow.camera.bottom = -20;
-    this.dirLight.shadow.bias = -0.0005;
-    this.dirLight.shadow.normalBias = 0.02;
-    this.scene.add(this.dirLight);
-
-    this.fillLight = new THREE.DirectionalLight(0xd0e0ff, 1.0);
-    this.fillLight.position.set(-8, 8, -6);
-    this.scene.add(this.fillLight);
-
-    this.rimLight = new THREE.DirectionalLight(0xffffff, 0.6);
-    this.rimLight.position.set(0, -4, 8);
-    this.scene.add(this.rimLight);
-  }
-
-  _setupEnvironment() {
-    const envScene = new THREE.Scene();
-    const envGen = new THREE.PMREMGenerator(this.renderer);
-    envGen.compileCubemapShader();
-    const envMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(50, 16, 16),
-      new THREE.MeshBasicMaterial({ color: 0x445566, side: THREE.BackSide })
-    );
-    envScene.add(envMesh);
-    envScene.add(new THREE.AmbientLight(0x8899aa, 1));
-    const envMap = envGen.fromScene(envScene, 0.01).texture;
-    this.scene.environment = envMap;
-    this.envMap = envMap;
-    envGen.dispose();
-  }
-
-  _loadSteelTexture() {
-    const textureUrl = `${import.meta.env.BASE_URL || '/'}textures/steel-rolled-pro.jpg`;
-    new THREE.TextureLoader().load(textureUrl, (texture) => {
-      texture.wrapS = THREE.RepeatWrapping;
-      texture.wrapT = THREE.RepeatWrapping;
-      texture.repeat.set(3, 3);
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
-      this.steelTexture = texture;
-      if (this._visualMode === 'pbr') {
-        this.objects.forEach((object) => this._applyVisualModeToObject(object));
-      }
-    }, undefined, (error) => {
-      console.warn('No se pudo cargar la textura de acero PBR.', error);
-    });
-  }
-
   // ─── VISUAL MODES ────────────────────────────────────────────
   setVisualMode(mode) {
     this._visualMode = mode;
     const badge = document.getElementById('viewport-mode-badge');
-    const labels = { clay: 'TECHNICAL CLAY', pbr: 'PBR REALISTIC', wire: 'WIREFRAME', xray: 'X-RAY' };
+    const labels = { clay: 'COLOR PLANO', wire: 'ARISTAS', xray: 'TRANSPARENTE' };
     if (badge) badge.textContent = labels[mode] || mode.toUpperCase();
     this.objects.forEach(obj => this._applyVisualModeToObject(obj));
   }
 
-  _applyVisualModeToObject(obj) {
-    if (!obj.mesh) return;
-    const mode = this._visualMode;
-    obj.mesh.traverse(child => {
-      if (!child.isMesh || !child.material) return;
-      const mat = child.material;
-      switch (mode) {
-        case 'clay':
-          mat.map = null;
-          mat.bumpMap = null;
-          mat.roughnessMap = null;
-          mat.wireframe = false;
-          mat.transparent = false; mat.opacity = 1;
-          mat.roughness = 0.82; mat.metalness = 0.15;
-          mat.color.set(obj._isSelected ? 0x4a5580 : 0x48505e);
-          mat.envMapIntensity = 0.2;
-          break;
-        case 'pbr':
-          mat.wireframe = false;
-          mat.transparent = false; mat.opacity = 1;
-          mat.roughness = 0.42; mat.metalness = 0.78;
-          mat.color.set(new THREE.Color(obj.color));
-          mat.envMapIntensity = 1.0;
-          mat.map = this.steelTexture && (obj.type === 'profile' || (obj.type === 'plate' && obj.params?.subtype !== 'neoprene'))
-            ? this.steelTexture
-            : null;
-          mat.bumpMap = mat.map;
-          mat.bumpScale = mat.map ? 0.012 : 0;
-          mat.roughnessMap = mat.map;
-          break;
-        case 'wire':
-          mat.wireframe = true;
-          mat.transparent = false; mat.opacity = 1;
-          mat.color.set(obj._isSelected ? 0x6b93ff : 0x4a7acc);
-          break;
-        case 'xray':
-          mat.wireframe = false;
-          mat.transparent = true; mat.opacity = 0.35;
-          mat.roughness = 0.5; mat.metalness = 0.3;
-          mat.color.set(new THREE.Color(obj.color));
-          mat.side = THREE.DoubleSide;
-          mat.depthWrite = false;
-          break;
-      }
-      mat.needsUpdate = true;
-    });
-  }
+  _applyVisualModeToObject(obj) { applyWorkshopStyle(obj, this._visualMode); }
 
   // ─── HOVER SYSTEM ────────────────────────────────────────────
   setHovered(bimObj) {
-    if (this._hoveredObj && this._hoveredObj !== bimObj) this._clearHover(this._hoveredObj);
-    if (!bimObj || bimObj === this._hoveredObj || bimObj._isSelected) return;
-    this._hoveredObj = bimObj;
-    if (!bimObj.mesh) return;
-    bimObj.mesh.traverse(child => {
-      if (!child.isMesh || !child.material) return;
-      if (!this._hoveredOriginals.has(child.uuid)) {
-        this._hoveredOriginals.set(child.uuid, {
-          emissive: child.material.emissive ? child.material.emissive.clone() : new THREE.Color(0),
-          emissiveIntensity: child.material.emissiveIntensity || 0,
-          roughness: child.material.roughness,
-        });
-      }
-      child.material.emissive = new THREE.Color(0x2255aa);
-      child.material.emissiveIntensity = 0.12;
-      child.material.roughness = Math.max(0.3, child.material.roughness - 0.08);
-      child.material.needsUpdate = true;
-    });
+    if(this._hoveredObj && this._hoveredObj!==bimObj) applyWorkshopStyle(this._hoveredObj,this._visualMode);
+    this._hoveredObj=bimObj;
+    if(bimObj && !bimObj._isSelected) bimObj.mesh.traverse(c=>{if(c.isMesh && c.material?.color)c.material.color.set('#98acb8');});
   }
 
-  _clearHover(bimObj) {
-    if (!bimObj || !bimObj.mesh) return;
-    bimObj.mesh.traverse(child => {
-      if (!child.isMesh || !child.material) return;
-      const orig = this._hoveredOriginals.get(child.uuid);
-      if (orig) {
-        child.material.emissive.copy(orig.emissive);
-        child.material.emissiveIntensity = orig.emissiveIntensity;
-        child.material.roughness = orig.roughness;
-        child.material.needsUpdate = true;
-      }
-      this._hoveredOriginals.delete(child.uuid);
-    });
-    this._hoveredObj = null;
-  }
+  _clearHover(bimObj) { applyWorkshopStyle(bimObj,this._visualMode); this._hoveredObj=null; }
 
   clearHover() {
     if (this._hoveredObj) this._clearHover(this._hoveredObj);
@@ -293,13 +156,14 @@ export class SceneManager {
     if (this._hoveredObj === obj) this._hoveredObj = null;
     const idx = this.objects.indexOf(obj);
     if (idx !== -1) this.objects.splice(idx, 1);
+    obj._disposeMesh?.();
   }
 
   getSelectableObjects() {
     const meshes = [];
     this.objects.forEach(o => {
-      if (o.mesh) {
-        o.mesh.traverse(child => { if (child.isMesh) meshes.push(child); });
+      if (o.mesh?.visible) {
+        o.mesh.traverseVisible(child => { if (child.isMesh && !child.userData.ignoreSnap) meshes.push(child); });
       }
     });
     return meshes;
@@ -313,8 +177,9 @@ export class SceneManager {
     );
     this.raycaster.setFromCamera(mouse, this.camera);
     const hits = this.raycaster.intersectObjects(this.getSelectableObjects(), true);
-    if (!hits.length) return null;
-    let target = hits[0].object;
+    const hit=hits.find(h=>!this.renderer.clippingPlanes.some(p=>p.distanceToPoint(h.point)<0));
+    if (!hit) return null;
+    let target = hit.object;
     while (target && !target.userData?.bimId) target = target.parent;
     if (!target?.userData?.bimId) return null;
     return this.objects.find(o => o.id === target.userData.bimId) || null;
@@ -341,10 +206,10 @@ export class SceneManager {
       iso:        [8, 6, 10],
       top:        [0, d, 0.01],
       bottom:     [0, -d, 0.01],
-      front:      [0, d * 0.25, d],
-      back:       [0, d * 0.25, -d],
-      left:       [-d, d * 0.25, 0],
-      right:      [d, d * 0.25, 0],
+      front:      [0, 0, d],
+      back:       [0, 0, -d],
+      left:       [-d, 0, 0],
+      right:      [d, 0, 0],
       topFront:   [0, d * 0.75, d * 0.75],
       topRight:   [d * 0.75, d * 0.75, 0],
       topLeft:    [-d * 0.75, d * 0.75, 0],
@@ -359,7 +224,7 @@ export class SceneManager {
 
   setCameraView(view) {
     const pos = this._cameraViewPreset(view);
-    const target = new THREE.Vector3(0, 0, 0);
+    const target = this.orbitControls.target.clone();
     const isOrthoView = ['top','bottom','front','back','left','right'].includes(view);
 
     if (!isOrthoView) {
@@ -374,7 +239,10 @@ export class SceneManager {
       this.camera.updateProjectionMatrix();
     }
 
-    this.camera.position.set(...pos);
+    this.camera.up.set(0,1,0);
+    if(view === "top") {pos[2]=0;this.camera.up.set(0,0,-1);}
+    if(view === "bottom") {pos[2]=0;this.camera.up.set(0,0,1);}
+    this.camera.position.set(...pos).add(target);
     this.camera.lookAt(target);
     this.orbitControls.object = this.camera;
     this.orbitControls.target.copy(target);
@@ -385,74 +253,25 @@ export class SceneManager {
   }
 
   /** Smooth animated transition between camera views. */
-  animateCameraTo(view, duration = 450) {
-    if (this._cameraAnim) cancelAnimationFrame(this._cameraAnim);
-    const endPos = new THREE.Vector3(...this._cameraViewPreset(view));
-    const endTarget = new THREE.Vector3(0, 0, 0);
-    const isOrthoView = ['top','bottom','front','back','left','right'].includes(view);
-
-    // If switching camera mode, swap first then animate on the destination camera
-    const wasPersp = this._cameraMode === 'perspective';
-    const willPersp = !isOrthoView;
-    if (wasPersp !== willPersp) {
-      // Carry current view to new camera so animation starts at the right place
-      const startWorld = this.camera.position.clone();
-      const startTarget = this.orbitControls.target.clone();
-      if (willPersp) {
-        this._cameraMode = 'perspective';
-        this.camera = this.perspCamera;
-        this.orbitControls.enableRotate = true;
-      } else {
-        this._cameraMode = 'ortho';
-        this.camera = this.orthoCamera;
-        this.orbitControls.enableRotate = false;
-        this.camera.zoom = 1;
-        this.camera.updateProjectionMatrix();
-      }
-      this.camera.position.copy(startWorld);
-      this.orbitControls.object = this.camera;
-      this.orbitControls.target.copy(startTarget);
-      this.transformControls.camera = this.camera;
-    }
-
-    const startPos = this.camera.position.clone();
-    const startTarget = this.orbitControls.target.clone();
-    const t0 = performance.now();
-    const ease = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-
-    const step = () => {
-      const now = performance.now();
-      const k = Math.min(1, (now - t0) / duration);
-      const e = ease(k);
-      this.camera.position.lerpVectors(startPos, endPos, e);
-      this.orbitControls.target.lerpVectors(startTarget, endTarget, e);
-      this.orbitControls.update();
-      if (k < 1) {
-        this._cameraAnim = requestAnimationFrame(step);
-      } else {
-        this._cameraAnim = null;
-        this._updateZoomLabel();
-      }
-    };
-    step();
-  }
+  animateCameraTo(view) { this.setCameraView(view); this.fitAll(); }
 
   /** Fit whole scene in view (Home / F key). */
   fitAll(padding = 1.4) {
     if (!this.objects.length) return;
     const box = new THREE.Box3();
-    this.objects.forEach(o => { if (o.mesh) box.expandByObject(o.mesh); });
+    this.objects.forEach(o => { if (o.mesh?.visible) box.expandByObject(o.mesh); });
     if (box.isEmpty()) return;
     const center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3()).length();
+    const direction=this.camera.position.clone().sub(this.orbitControls.target).normalize();
     this.orbitControls.target.copy(center);
     if (this._cameraMode === 'perspective') {
-      const dir = new THREE.Vector3().subVectors(this.camera.position, this.orbitControls.target).normalize();
+      const dir = direction;
       if (dir.lengthSq() < 1e-6) dir.set(1, 0.7, 1).normalize();
       this.camera.position.copy(center).add(dir.multiplyScalar(size * padding));
     } else {
-      this.camera.position.copy(center).add(new THREE.Vector3(0, 10, 0.01));
-      this.camera.zoom = this._baseFrustumSize / (size * padding);
+      this.camera.position.copy(center).add(direction.multiplyScalar(Math.max(10,size)));
+      this.camera.zoom = Math.min(this._baseFrustumSize,this._baseFrustumSize*this.container.clientWidth/this.container.clientHeight) / (size * padding);
       this.camera.updateProjectionMatrix();
       this._updateZoomLabel();
     }
@@ -469,14 +288,15 @@ export class SceneManager {
     const box = new THREE.Box3().setFromObject(bimObj.mesh);
     const center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3()).length();
+    const direction=this.camera.position.clone().sub(this.orbitControls.target).normalize();
     this.orbitControls.target.copy(center);
     
     if (this._cameraMode === 'perspective') {
-      this.camera.position.copy(center).add(new THREE.Vector3(size, size * 0.7, size));
+      this.camera.position.copy(center).add(direction.multiplyScalar(Math.max(.005,size*1.6)));
     } else {
       // Ortográfica: centrar y ajustar zoom (frustum)
-      this.camera.position.set(center.x, center.y + 10, center.z + 0.01);
-      this.camera.zoom = this._baseFrustumSize / (size * 1.5);
+      this.camera.position.copy(center).add(direction.multiplyScalar(10));
+      this.camera.zoom = Math.min(this._baseFrustumSize,this._baseFrustumSize*this.container.clientWidth/this.container.clientHeight) / Math.max(.001,size * 1.5);
       this.camera.updateProjectionMatrix();
       this._updateZoomLabel();
     }
@@ -527,38 +347,30 @@ export class SceneManager {
     this._updateZoomLabel();
   }
 
-  resetZoom() {
-    if (this._cameraMode === 'perspective') {
-      this.camera.position.set(8, 6, 10);
-      this.orbitControls.target.set(0, 0, 0);
-    } else {
-      this.camera.zoom = 1;
-      this.camera.updateProjectionMatrix();
-      this.orbitControls.target.set(0, 0, 0);
-      this.camera.position.set(0, 10, 0.01);
+  zoomAtPointer(event){
+    if(!this.orbitControls.enabled||this._isDragging)return;
+    event.preventDefault();event.stopImmediatePropagation();
+    const rect=this.renderer.domElement.getBoundingClientRect(),pointer=new THREE.Vector2((event.clientX-rect.left)/rect.width*2-1,1-(event.clientY-rect.top)/rect.height*2),ray=new THREE.Raycaster();
+    this.camera.updateMatrixWorld(true);this.scene.updateMatrixWorld(true);ray.setFromCamera(pointer,this.camera);
+    const hit=ray.intersectObjects(this.getSelectableObjects(),false).find(h=>!this.renderer.clippingPlanes.some(p=>p.distanceToPoint(h.point)<0));
+    const direction=this.camera.getWorldDirection(new THREE.Vector3()),plane=new THREE.Plane().setFromNormalAndCoplanarPoint(direction,this.orbitControls.target),anchor=hit?.point.clone()||ray.ray.intersectPlane(plane,new THREE.Vector3());
+    if(!anchor)return;
+    const delta=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?rect.height:1),factor=Math.exp(THREE.MathUtils.clamp(delta*.0012,-.8,.8));
+    if(this.camera.isPerspectiveCamera){
+      const distance=this.camera.position.distanceTo(anchor),next=THREE.MathUtils.clamp(distance*factor,.002,600),ratio=next/Math.max(distance,1e-12);
+      this.camera.position.sub(anchor).multiplyScalar(ratio).add(anchor);this.orbitControls.target.sub(anchor).multiplyScalar(ratio).add(anchor);
+    }else{
+      this.camera.zoom=THREE.MathUtils.clamp(this.camera.zoom/factor,.01,100000);this.camera.updateProjectionMatrix();
+      ray.setFromCamera(pointer,this.camera);plane.setFromNormalAndCoplanarPoint(direction,anchor);const after=ray.ray.intersectPlane(plane,new THREE.Vector3());
+      if(after){const shift=anchor.clone().sub(after);this.camera.position.add(shift);this.orbitControls.target.add(shift);}
     }
-    this.orbitControls.update();
-    this._updateZoomLabel();
+    this.orbitControls.update();this._updateZoomLabel();
   }
 
+  resetZoom() { this.fitAll(); this._updateZoomLabel(); }
+
   // ─── THEME ───────────────────────────────────────────────────
-  setTheme(dark) {
-    this._dark = dark;
-    if (dark) {
-      // The reference application keeps a light technical viewport inside a dark shell.
-      this.scene.background = new THREE.Color(0xcbd5dc);
-      this.hemiLight.color.set(0xf4f7fa);
-      this.hemiLight.groundColor.set(0x667580);
-      this.ambientLight.color.set(0xffffff);
-      this.ambientLight.intensity = 0.82;
-    } else {
-      this.scene.background = new THREE.Color(0xf1f4f6);
-      this.hemiLight.color.set(0xffffff);
-      this.hemiLight.groundColor.set(0xb8c2c9);
-      this.ambientLight.color.set(0xffffff);
-      this.ambientLight.intensity = 0.96;
-    }
-  }
+  setTheme(dark) { this._dark=dark; this.scene.background=new THREE.Color(dark?0xe9edf0:0xf7f8f9); }
 
   /** Dynamically resize gizmo so it stays visible at any zoom. */
   _updateGizmoSize() {

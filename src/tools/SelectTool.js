@@ -12,24 +12,7 @@ export class SelectTool {
   }
 
   handleClick(event) {
-    const rect = this.sceneManager.renderer.domElement.getBoundingClientRect();
-    const mouse = {
-      x: ((event.clientX - rect.left) / rect.width) * 2 - 1,
-      y: -((event.clientY - rect.top) / rect.height) * 2 + 1,
-    };
-
-    this.sceneManager.raycaster.setFromCamera(mouse, this.sceneManager.camera);
-    const selectables = this.sceneManager.getSelectableObjects();
-    const hits = this.sceneManager.raycaster.intersectObjects(selectables, true);
-
-    let clickedObj = null;
-    if (hits.length > 0) {
-      let target = hits[0].object;
-      while (target && !target.userData?.bimId) target = target.parent;
-      if (target && target.userData?.bimId) {
-        clickedObj = this.sceneManager.objects.find(o => o.id === target.userData.bimId);
-      }
-    }
+    const clickedObj=this.sceneManager.getBIMObjectAtMouse(event);
 
     const additive = event.ctrlKey || event.metaKey || event.shiftKey;
 

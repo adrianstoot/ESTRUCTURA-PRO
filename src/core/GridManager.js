@@ -51,10 +51,8 @@ export class GridManager {
     this.gridGroup.add(this.groundPlane);
 
     // Origin indicator (small dot)
-    const originGeo = new THREE.SphereGeometry(0.04, 8, 8);
-    const originMat = new THREE.MeshBasicMaterial({ color: 0x4a5070, depthTest: false });
-    const origin = new THREE.Mesh(originGeo, originMat);
-    origin.position.y = 0.002;
+    const originGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3()]);
+    const origin = new THREE.Points(originGeo,new THREE.PointsMaterial({color:0x697c89,size:4,sizeAttenuation:false}));
     this.gridGroup.add(origin);
 
     // Axis lines — thin and tasteful

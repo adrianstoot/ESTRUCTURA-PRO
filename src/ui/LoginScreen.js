@@ -5,7 +5,7 @@ const SETTINGS_KEY = 'estructuras-pro:settings:v1';
 const DEFAULT_SETTINGS = Object.freeze({
   units: 'metric',
   interfaceTheme: 'dark',
-  snapPrecision: '10',
+  snapPrecision: '1',
   autosave: true,
   reducedMotion: false,
 });
@@ -45,7 +45,7 @@ export class LoginScreen {
           <header class="ep0-brand">
             <div class="ep0-logo">${brandLogo(156)}</div>
             <h1 id="ep0-title"><span>ESTRUCTURAS</span> <strong>PRO</strong></h1>
-            <p>Diseño, análisis y detallado<br>de estructuras metálicas</p>
+            <p>Diseño, montaje y taller<br>de estructuras metálicas</p>
           </header>
 
           <nav class="ep0-launch-actions" aria-label="Inicio de proyecto">
@@ -284,7 +284,7 @@ export class LoginScreen {
       },
       about: {
         title: 'Acerca de',
-        html: `<div class="ep0-about"><div class="ep0-about-logo">${brandLogo(64)}</div><div><h3>ESTRUCTURAS PRO</h3><p>Diseño, análisis y detallado profesional de estructuras metálicas.</p></div></div>
+        html: `<div class="ep0-about"><div class="ep0-about-logo">${brandLogo(64)}</div><div><h3>ESTRUCTURAS PRO</h3><p>Diseño, montaje y taller profesional de estructuras metálicas.</p></div></div>
           <dl class="ep0-about-grid"><div><dt>Edición</dt><dd>Professional</dd></div><div><dt>Normativa</dt><dd>Código Estructural · RD 470/2021</dd></div><div><dt>Motor gráfico</dt><dd>Three.js</dd></div></dl>
           <div class="ep0-dialog-actions"><button type="button" class="ep0-btn-primary" data-dialog-close>Cerrar</button></div>`,
       },
@@ -314,7 +314,7 @@ export class LoginScreen {
         this.settings = {
           units: String(data.get('units') || 'metric'),
           interfaceTheme: String(data.get('interfaceTheme') || 'dark'),
-          snapPrecision: String(data.get('snapPrecision') || '10'),
+          snapPrecision: String(data.get('snapPrecision') || '1'),
           autosave: data.get('autosave') === 'on',
           reducedMotion: data.get('reducedMotion') === 'on',
         };
@@ -348,9 +348,9 @@ export class LoginScreen {
     const selected = (current, value) => current === value ? 'selected' : '';
     const checked = (value) => value ? 'checked' : '';
     return `<form class="ep0-dialog-form" id="ep0-settings-form">
-      <div class="ep0-setting-row"><label for="ep0-units">Sistema de unidades</label><select id="ep0-units" name="units"><option value="metric" ${selected(this.settings.units, 'metric')}>Métrico · m, mm, kN</option></select></div>
+      <div class="ep0-setting-row"><label for="ep0-units">Sistema de unidades</label><select id="ep0-units" name="units"><option value="metric" ${selected(this.settings.units, 'metric')}>Milímetros · mm</option></select></div>
       <div class="ep0-setting-row"><label for="ep0-theme">Tema del editor</label><select id="ep0-theme" name="interfaceTheme"><option value="dark" ${selected(this.settings.interfaceTheme, 'dark')}>Oscuro técnico</option><option value="system" ${selected(this.settings.interfaceTheme, 'system')}>Configuración del sistema</option></select></div>
-      <div class="ep0-setting-row"><label for="ep0-snap">Precisión de captura</label><select id="ep0-snap" name="snapPrecision"><option value="5" ${selected(this.settings.snapPrecision, '5')}>5 mm · Alta precisión</option><option value="10" ${selected(this.settings.snapPrecision, '10')}>10 mm · Recomendada</option><option value="25" ${selected(this.settings.snapPrecision, '25')}>25 mm · Croquis rápido</option></select></div>
+      <div class="ep0-setting-row"><label for="ep0-snap">Precisión de captura</label><select id="ep0-snap" name="snapPrecision"><option value="0.1" ${selected(this.settings.snapPrecision, '0.1')}>0,1 mm · Detalle</option><option value="1" ${selected(this.settings.snapPrecision, '1')}>1 mm · Taller</option><option value="5" ${selected(this.settings.snapPrecision, '5')}>5 mm · Alta precisión</option><option value="10" ${selected(this.settings.snapPrecision, '10')}>10 mm · Recomendada</option><option value="25" ${selected(this.settings.snapPrecision, '25')}>25 mm · Croquis rápido</option></select></div>
       <label class="ep0-check-row"><input type="checkbox" name="autosave" ${checked(this.settings.autosave)}><span>Activar guardado automático</span></label>
       <label class="ep0-check-row"><input type="checkbox" name="reducedMotion" ${checked(this.settings.reducedMotion)}><span>Reducir animaciones</span></label>
       <div class="ep0-dialog-actions ep0-dialog-actions-split"><button type="button" class="ep0-btn-quiet" id="ep0-reset-settings">Restablecer</button><div><button type="button" class="ep0-btn-secondary" data-dialog-close>Cancelar</button><button type="submit" class="ep0-btn-primary">Guardar ajustes</button></div></div>

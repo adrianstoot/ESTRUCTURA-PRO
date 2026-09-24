@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Weld } from '../entities/Weld.js';
+import { surfaceContacts } from '../core/GeometryQueries.js';
 
 const AXIS_THRESHOLD_DEG = 7;
 const SPARK_COUNT = 32;
@@ -18,7 +19,7 @@ export class WeldTool {
     this.snapManager = snapManager;
     this.onWeldCreated = onWeldCreated;
     this.active = false;
-    this.axisAssist = true;
+    this.axisAssist = false;
     this.axisThresholdDeg = AXIS_THRESHOLD_DEG;
     this.radius = 0.005;
     this.pointA = null;
@@ -55,6 +56,8 @@ export class WeldTool {
     const next = !!active;
     if (next === this.active) return;
     this.active = next;
+    this.hud?.remove();this.hud=null;
+    if(next){this.hud=document.createElement('div');this.hud.className='workshop-tool-hud';this.hud.innerHTML='<strong>Soldadura</strong><label>Garganta a <select aria-label="Garganta de soldadura">'+[4,5,6,8].map(n=>`<option ${n===this.radius*1000?'selected':''}>${n}</option>`).join('')+'</select> mm</label><span role="status">Seleccione el inicio de una arista de encuentro.</span><button type="button">Finalizar</button>';this.sceneManager.container.appendChild(this.hud);this.hud.querySelector('select').onchange=e=>{this.radius=Number(e.target.value)/1000;};this.hud.querySelector('button').onclick=()=>document.dispatchEvent(new Event('workshop-exit-tool'));}
     const canvas = this.sceneManager.renderer?.domElement;
     if (canvas) {
       if (next) {
@@ -75,7 +78,7 @@ export class WeldTool {
   handleClick(event) {
     if (!this.active || (event?.button != null && event.button !== 0)) return null;
     const rawEndpoint = this._pickEndpoint(event, true);
-    if (!rawEndpoint) return null;
+    if (!rawEndpoint) {this._message('Seleccione una superficie de acero visible.');return null;}
     const endpoint = this.pointA ? this._applyAxisAssist(rawEndpoint, event) : rawEndpoint;
 
     if (!this.pointA) {
@@ -85,6 +88,7 @@ export class WeldTool {
       this.snapManager?.setReferencePoint?.(this.pointA);
       this._showTempMarker(this.pointA);
       this._updatePreview(this.pointA, this.pointA);
+      this._message('Inicio fijado. Seleccione el final del contacto · Esc cancela.');
       return this.pointA.clone();
     }
 
@@ -106,7 +110,7 @@ export class WeldTool {
       return;
     }
     const endpoint = this.pointA ? this._applyAxisAssist(rawEndpoint, event) : rawEndpoint;
-    this._updateLaser(endpoint.point, event);
+    // The snap cursor is the pointer; no laser, heat or particles in workshop mode.
     if (this.pointA) this._updatePreview(this.pointA, endpoint.point);
   }
 
@@ -124,7 +128,7 @@ export class WeldTool {
     if (refreshSnap && event && this.snapManager?.enabled) this.snapManager.update?.(event);
 
     const snapInfo = this.snapManager?.getSnapInfo?.();
-    if (snapInfo?.point && snapInfo.bimObject?.type !== 'weld') {
+    if (snapInfo?.point && snapInfo.bimObject && snapInfo.bimObject.type !== 'weld') {
       const point = snapInfo.point.clone?.() || new THREE.Vector3().fromArray(snapInfo.point);
       let binding = this._cloneBinding(snapInfo.binding);
       if (!binding && snapInfo.bimObject) binding = this._makeBinding(snapInfo.bimObject, point);
@@ -149,10 +153,7 @@ export class WeldTool {
       };
     }
 
-    const snapPoint = this.snapManager?.getSnapPoint?.();
-    return snapPoint ? {
-      point: snapPoint.clone(), binding: null, normal: null, snapType: 'point', bimObject: null,
-    } : null;
+    return null;
   }
 
   _applyAxisAssist(endpoint, event) {
@@ -176,18 +177,25 @@ export class WeldTool {
 
   _createWeld(a, b, bindingA = null, bindingB = null, normalA = null, normalB = null) {
     if (a.distanceToSquared(b) < 1e-10) return null;
+    let pair=null;
+    for(const t of [0,.25,.5,.75,1]){
+      const contacts=surfaceContacts(this.sceneManager.objects,a.clone().lerp(b,t),.0006);
+      let found=null;
+      for(const first of contacts)for(const second of contacts){if(first.object!==second.object && Math.abs(first.normal.dot(second.normal))<.995){found=[first,second];break;}}
+      if(!found){this._message('El tramo no sigue el contacto entre dos piezas. Ajuste el encaje o los extremos.');return null;}
+      if(t===.5)pair=found;
+    }
     const weld = new Weld(a, b, this.radius, {
       a: this._cloneBinding(bindingA),
       b: this._cloneBinding(bindingB),
     });
     this.sceneManager.addObject(weld);
-    weld.setHeat(1);
+    if(pair)weld.setSectionNormals(pair[0].normal,pair[1].normal,pair.map(c=>c.object));
     const normal = new THREE.Vector3();
     if (normalA) normal.add(normalA);
     if (normalB) normal.add(normalB);
     if (normal.lengthSq() < 1e-8) normal.set(0, 1, 0);
     else normal.normalize();
-    this._emitSparks(weld, b, normal);
     if (this.onWeldCreated) this.onWeldCreated(weld);
 
     const canvas = this.sceneManager.renderer?.domElement;
@@ -198,8 +206,11 @@ export class WeldTool {
       }));
     }
     this._resetPending({ keepLaser: true });
+    this._message(`Cordón creado · ${(a.distanceTo(b)*1000).toFixed(2)} mm · seleccione otro inicio.`);
     return weld;
   }
+
+  _message(message){if(this.hud)this.hud.querySelector('[role=status]').textContent=message;}
 
   _resetPending({ keepLaser = false } = {}) {
     this.pointA = null;
@@ -253,6 +264,7 @@ export class WeldTool {
       this.sceneManager.getSelectableObjects(), true,
     );
     for (const hit of hits) {
+      if(this.sceneManager.renderer.clippingPlanes?.some(p=>p.distanceToPoint(hit.point)<0))continue;
       if (hit.object.name === 'GroundPlane' || hit.object.name === 'GridSystem') continue;
       if (hit.object.name?.startsWith('__')) continue;
       const bimObject = this._findBIMObjectFromMesh(hit.object);

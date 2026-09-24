@@ -114,7 +114,9 @@ export class Plate extends BIMElement {
     const thickness = Math.max(EPSILON, finite(this.params.thickness, 0.02));
     const subtype = this.params.subtype;
     let area;
-    if (subtype === 'cleat') {
+    if(subtype==='folded') {
+      const path=this._foldPath();area=path.slice(1).reduce((s,p,i)=>s+p.distanceTo(path[i]),0)*this.params.height;
+    } else if (subtype === 'cleat') {
       const legDepth = Math.max(thickness, finite(this.params.legDepth, width));
       area = width * thickness + legDepth * thickness - thickness ** 2;
     } else {
@@ -136,6 +138,7 @@ export class Plate extends BIMElement {
       'splice-plate': 'Cubrejunta',
       cleat: 'Casquillo L',
       neoprene: 'Apoyo Neopreno',
+      folded: 'Chapa grecada continua',
     };
     this.designation = names[subtype] || 'Chapa';
     this.area = area * 10000;
@@ -160,11 +163,13 @@ export class Plate extends BIMElement {
     const thickness = clamp(finite(this.params.thickness, 0.008), EPSILON, Math.min(width, depth));
     const group = new THREE.Group();
     group.name = this.designation;
-    const xLeg = this._configureMesh(new THREE.Mesh(new THREE.BoxGeometry(width, height, thickness), material), 'cleat-leg-x');
+    const legGeometry=(w,holes=[])=>{const shape=new THREE.Shape([new THREE.Vector2(-w/2,-height/2),new THREE.Vector2(w/2,-height/2),new THREE.Vector2(w/2,height/2),new THREE.Vector2(-w/2,height/2)]);for(const h of holes){const path=new THREE.Path();path.absarc(h.x,h.y,h.diameter/2,0,Math.PI*2,true);shape.holes.push(path);}const g=new THREE.ExtrudeGeometry(shape,{depth:thickness,bevelEnabled:false,curveSegments:16});g.translate(0,0,-thickness/2);return g;};
+    const xLeg = this._configureMesh(new THREE.Mesh(legGeometry(width,this.params.legXHoles), material), 'cleat-leg-x');
     xLeg.name = 'Ala de casquillo X';
     xLeg.position.set(width / 2 - thickness / 2, 0, 0);
     group.add(xLeg);
-    const zLeg = this._configureMesh(new THREE.Mesh(new THREE.BoxGeometry(thickness, height, depth), material), 'cleat-leg-z');
+    const zg=legGeometry(depth,this.params.legZHoles);zg.rotateY(-Math.PI/2);
+    const zLeg = this._configureMesh(new THREE.Mesh(zg, material), 'cleat-leg-z');
     zLeg.name = 'Ala de casquillo Z';
     zLeg.position.set(0, 0, depth / 2 - thickness / 2);
     group.add(zLeg);
@@ -173,6 +178,17 @@ export class Plate extends BIMElement {
     heel.userData.componentRole = 'angle-heel-pivot';
     group.add(heel);
     return group;
+  }
+
+  _foldPath(){
+    const width=this.params.width,ribs=Math.max(1,Math.round(this.params.ribs||6)),depth=this.params.foldDepth||.075,cell=width/ribs,path=[];
+    for(let i=0;i<ribs;i++)for(const [x,y]of[[0,0],[.18,0],[.35,depth],[.65,depth],[.82,0],[1,0]]){const point=new THREE.Vector2(-width/2+(i+x)*cell,y);if(!path.length||point.distanceTo(path.at(-1))>1e-10)path.push(point);}return path;
+  }
+
+  _buildFolded(material){
+    const path=this._foldPath(),half=this.params.thickness/2;
+    const offset=side=>path.map((p,i)=>{const before=path[Math.max(0,i-1)],after=path[Math.min(path.length-1,i+1)],d1=p.clone().sub(before).normalize(),d2=after.clone().sub(p).normalize();if(i===0)d1.copy(d2);if(i===path.length-1)d2.copy(d1);const n1=new THREE.Vector2(-d1.y,d1.x),n2=new THREE.Vector2(-d2.y,d2.x),bisector=n1.clone().add(n2).normalize();return p.clone().addScaledVector(bisector,side*half/Math.max(.1,bisector.dot(n1)));});
+    const outline=[...offset(1),...offset(-1).reverse()],shape=new THREE.Shape(outline),geometry=new THREE.ExtrudeGeometry(shape,{depth:this.params.height,bevelEnabled:false,steps:1});geometry.translate(0,0,-this.params.height/2);return new THREE.Mesh(geometry,material);
   }
 
   buildMesh() {
@@ -185,7 +201,9 @@ export class Plate extends BIMElement {
       material.roughness = 0.9;
       material.metalness = 0;
     }
-    if (subtype === 'cleat') {
+    if(subtype==='folded') {
+      this.mesh=this._buildFolded(material);
+    } else if (subtype === 'cleat') {
       this.mesh = this._buildCleat(material);
     } else {
       const holes = this._normalisedHoles();
@@ -200,7 +218,7 @@ export class Plate extends BIMElement {
         const shape = this._addHoles(this._shapeFromPoints(this._outlinePoints(), cornerRadius));
         geometry = new THREE.ExtrudeGeometry(shape, {
           depth: thickness,
-          bevelEnabled: edgeBevel > EPSILON,
+          bevelEnabled: false,
           bevelThickness: edgeBevel,
           bevelSize: edgeBevel,
           bevelSegments: edgeBevel > EPSILON ? 1 : 0,

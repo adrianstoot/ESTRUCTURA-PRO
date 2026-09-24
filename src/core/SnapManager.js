@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { semanticPoints } from './WorkshopGeometry.js';
 
 const SNAP_COLORS = {
   vertex: '#22d98f',
@@ -24,7 +25,7 @@ export class SnapManager {
     this.snapToMidpoint = true;
     this.snapToFace = true;
     this.snapToGrid = true;
-    this.gridSnap = 0.25;
+    this.gridSnap = 0.001;
     this.snapRadiusPx = 9;
     this.markerSizePx = 10;
 
@@ -40,6 +41,15 @@ export class SnapManager {
     this.snapType = null;
     this._referencePoint = null;
     this._raycaster = new THREE.Raycaster();
+    this._visibilityRaycaster = new THREE.Raycaster();
+    this._visibilityMouse = new THREE.Vector2();
+    this._visibilityHits = [];
+    this._semanticBounds = new THREE.Box3();
+    this._semanticSphere = new THREE.Sphere();
+    this._semanticChildSphere = new THREE.Sphere();
+    this._semanticMin = new THREE.Vector3();
+    this._semanticMax = new THREE.Vector3();
+    this._boundsPoint = new THREE.Vector3();
     this._mouse = new THREE.Vector2();
     this._pointerPx = new THREE.Vector2();
     this._featureCache = new WeakMap();
@@ -98,7 +108,6 @@ export class SnapManager {
   }
 
   update(event) {
-    if (!this.enabled) return null;
     const canvas = this.sceneManager.renderer.domElement;
     const rect = canvas.getBoundingClientRect();
     if (!rect.width || !rect.height) {
@@ -115,17 +124,31 @@ export class SnapManager {
     this.sceneManager.camera.updateMatrixWorld(true);
     this.sceneManager.scene.updateMatrixWorld(true);
     this._raycaster.setFromCamera(this._mouse, this.sceneManager.camera);
+    this._selectables=this.sceneManager.getSelectableObjects();
+    this._frontHit=this._raycaster.intersectObjects(this._selectables,false).find(h=>!this._clipped(h.point));
+
+    if (!this.enabled) {
+      const hit=this._frontHit;
+      if(hit)return this._commitSnap({point:hit.point.clone(),type:'face',feature:'free',bimObject:this._findBIMObjectFromMesh(hit.object),normal:hit.face?.normal?.clone().transformDirection(hit.object.matrixWorld),distancePx:0});
+      const ground=this.gridManager?.getGroundPlane?.(),point=ground&&this._raycaster.intersectObject(ground,false)[0]?.point;
+      if(point)return this._commitSnap({point:point.clone(),type:'grid',feature:'free',bimObject:null,normal:new THREE.Vector3(0,1,0),distancePx:0});
+      this._clearSnap();return null;
+    }
+
+    const semanticCandidates=[];
+    for(const object of this.sceneManager.objects){if(!object.mesh?.visible||!this._semanticObjectNearPointer(object.mesh))continue;for(const feature of semanticPoints(object)){const candidate=this._pointCandidate(feature.point,feature.type,feature.feature,object);if(candidate)semanticCandidates.push(candidate);}}
+    semanticCandidates.sort((a,b)=>a.distancePx-b.distancePx);
+    const semantic=semanticCandidates.find(candidate=>this._pointVisible(candidate.point))||null;
+    if(semantic)return this._commitSnap(semantic);
 
     const featureSnaps = this._findFeatureSnaps();
-    if (this.snapToVertex && featureSnaps.vertex) return this._commitSnap(featureSnaps.vertex);
-    if (this.snapToEdge && this.snapToMidpoint && featureSnaps.midpoint) {
-      return this._commitSnap(featureSnaps.midpoint);
-    }
-    if (this.snapToEdge && featureSnaps.edge) return this._commitSnap(featureSnaps.edge);
+    const nearestVisible=list=>{list.sort((a,b)=>a.distancePx-b.distancePx);return list.find(candidate=>this._pointVisible(candidate.point))||null;};
+    if(this.snapToVertex){const vertex=nearestVisible(featureSnaps.vertex);if(vertex)return this._commitSnap(vertex);}
+    if(this.snapToEdge&&this.snapToMidpoint){const midpoint=nearestVisible(featureSnaps.midpoint);if(midpoint)return this._commitSnap(midpoint);}
+    if(this.snapToEdge){const edge=nearestVisible(featureSnaps.edge);if(edge)return this._commitSnap(edge);}
 
     if (this.snapToFace) {
-      const hits = this._raycaster.intersectObjects(this.sceneManager.getSelectableObjects(), true);
-      const hit = hits.find((item) => this._isWorldVisible(item.object));
+      const hit = this._frontHit;
       if (hit) {
         const bimObject = this._findBIMObjectFromMesh(hit.object);
         const normal = hit.face?.normal
@@ -168,11 +191,12 @@ export class SnapManager {
   }
 
   _findFeatureSnaps() {
-    const best = { vertex: null, midpoint: null, edge: null };
-    const selectables = this.sceneManager.getSelectableObjects();
+    const candidates = { vertex: [], midpoint: [], edge: [] };
+    const selectables = this._selectables;
 
     for (const mesh of selectables) {
       if (!mesh.geometry || !this._isWorldVisible(mesh)) continue;
+      if(!this._nearPointer(mesh))continue;
       const features = this._getGeometryFeatures(mesh.geometry);
       if (!features.edges.length) continue;
       const bimObject = this._findBIMObjectFromMesh(mesh);
@@ -181,9 +205,7 @@ export class SnapManager {
         for (const localPoint of features.vertices) {
           const worldPoint = localPoint.clone().applyMatrix4(mesh.matrixWorld);
           const candidate = this._pointCandidate(worldPoint, 'vertex', 'endpoint', bimObject);
-          if (candidate && (!best.vertex || candidate.distancePx < best.vertex.distancePx)) {
-            best.vertex = candidate;
-          }
+          if(candidate)candidates.vertex.push(candidate);
         }
       }
 
@@ -195,18 +217,14 @@ export class SnapManager {
         if (this.snapToMidpoint) {
           const midpoint = new THREE.Vector3().addVectors(worldA, worldB).multiplyScalar(0.5);
           const candidate = this._pointCandidate(midpoint, 'midpoint', 'midpoint', bimObject);
-          if (candidate && (!best.midpoint || candidate.distancePx < best.midpoint.distancePx)) {
-            best.midpoint = candidate;
-          }
+          if(candidate)candidates.midpoint.push(candidate);
         }
 
         const candidate = this._edgeCandidate(worldA, worldB, bimObject);
-        if (candidate && (!best.edge || candidate.distancePx < best.edge.distancePx)) {
-          best.edge = candidate;
-        }
+        if(candidate)candidates.edge.push(candidate);
       }
     }
-    return best;
+    return candidates;
   }
 
   /** Build real feature edges for indexed and non-indexed BufferGeometry. */
@@ -214,7 +232,8 @@ export class SnapManager {
     const cached = this._featureCache.get(geometry);
     if (cached) return cached;
 
-    const edgeGeometry = new THREE.EdgesGeometry(geometry, 20);
+    const edgeGeometry = geometry.userData?.workshopSnapEdges || new THREE.EdgesGeometry(geometry, 24);
+    const sharedEdgeGeometry = edgeGeometry === geometry.userData?.workshopSnapEdges;
     const positions = edgeGeometry.attributes.position;
     const edges = [];
     const vertexMap = new Map();
@@ -233,7 +252,7 @@ export class SnapManager {
         addVertex(b);
       }
     }
-    edgeGeometry.dispose();
+    if(!sharedEdgeGeometry)edgeGeometry.dispose();
 
     const result = { edges, vertices: Array.from(vertexMap.values()) };
     this._featureCache.set(geometry, result);
@@ -272,7 +291,8 @@ export class SnapManager {
 
     // Reproject the interpolated world point once. Perspective projection is
     // not linear, so this second check prevents distant false positives.
-    const point = worldA.clone().lerp(worldB, t);
+    const point = new THREE.Vector3();
+    this._raycaster.ray.distanceSqToSegment(worldA,worldB,new THREE.Vector3(),point);
     const projected = this._projectToScreen(point);
     if (!projected) return null;
     const verifiedDistance = Math.hypot(
@@ -303,6 +323,65 @@ export class SnapManager {
     };
   }
 
+  _clipped(point){return(this.sceneManager.renderer.clippingPlanes||[]).some(p=>p.distanceToPoint(point)<0);}
+  _pointVisible(point){
+    if(this._clipped(point))return false;
+    const projected=point.clone().project(this.sceneManager.camera),ray=this._visibilityRaycaster;
+    this._visibilityMouse.set(projected.x,projected.y);
+    ray.setFromCamera(this._visibilityMouse,this.sceneManager.camera);
+    ray.far=Math.max(0,ray.ray.origin.distanceTo(point)-.00015);
+    this._visibilityHits.length=0;
+    ray.intersectObjects(this._selectables,false,this._visibilityHits);
+    return !this._visibilityHits.some(hit=>!this._clipped(hit.point));
+  }
+  _nearPointer(mesh){
+    if(!mesh.geometry.boundingSphere)mesh.geometry.computeBoundingSphere();
+    const sphere=mesh.geometry.boundingSphere.clone().applyMatrix4(mesh.matrixWorld);
+    if(!this._sphereNearPointer(sphere))return false;
+    if(!mesh.geometry.boundingBox)mesh.geometry.computeBoundingBox();
+    return this._screenBoxNearPointer(mesh.geometry.boundingBox,mesh.matrixWorld);
+  }
+  _semanticObjectNearPointer(root){
+    root.updateWorldMatrix(true,true);this._semanticBounds.makeEmpty();
+    root.traverse(child=>{
+      if(!child.isMesh||!child.geometry||!this._isWorldVisible(child))return;
+      if(!child.geometry.boundingSphere)child.geometry.computeBoundingSphere();
+      const sphere=this._semanticChildSphere.copy(child.geometry.boundingSphere).applyMatrix4(child.matrixWorld),c=sphere.center,r=sphere.radius;
+      this._semanticMin.set(c.x-r,c.y-r,c.z-r);this._semanticMax.set(c.x+r,c.y+r,c.z+r);
+      this._semanticBounds.expandByPoint(this._semanticMin);this._semanticBounds.expandByPoint(this._semanticMax);
+    });
+    if(this._semanticBounds.isEmpty())return true;
+    if(!this._sphereNearPointer(this._semanticBounds.getBoundingSphere(this._semanticSphere)))return false;
+    let near=false;
+    root.traverse(child=>{
+      if(near||!child.isMesh||!child.geometry||!this._isWorldVisible(child))return;
+      if(!child.geometry.boundingBox)child.geometry.computeBoundingBox();
+      if(this._screenBoxNearPointer(child.geometry.boundingBox,child.matrixWorld))near=true;
+    });
+    return near;
+  }
+  _screenBoxNearPointer(box,matrixWorld){
+    if(!box||box.isEmpty())return true;
+    let left=Infinity,right=-Infinity,top=Infinity,bottom=-Infinity;
+    for(let i=0;i<8;i++){
+      this._boundsPoint.set(i&1?box.max.x:box.min.x,i&2?box.max.y:box.min.y,i&4?box.max.z:box.min.z).applyMatrix4(matrixWorld).project(this.sceneManager.camera);
+      const p=this._boundsPoint;
+      if(!Number.isFinite(p.x)||!Number.isFinite(p.y)||!Number.isFinite(p.z)||p.z < -1||p.z > 1)return true;
+      const x=(p.x+1)*.5*this._rect.width,y=(1-p.y)*.5*this._rect.height;
+      left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);
+    }
+    const r=this.snapRadiusPx;
+    return this._pointerPx.x>=left-r&&this._pointerPx.x<=right+r&&this._pointerPx.y>=top-r&&this._pointerPx.y<=bottom+r;
+  }
+  _sphereNearPointer(sphere){
+    const c=this._projectToScreen(sphere.center);
+    if(!c)return true;
+    const camera=this.sceneManager.camera;let radius;
+    if(camera.isOrthographicCamera)radius=sphere.radius*this._rect.height*camera.zoom/(camera.top-camera.bottom);
+    else {const depth=sphere.center.clone().applyMatrix4(camera.matrixWorldInverse).z;radius=sphere.radius*this._rect.height/(2*Math.tan(THREE.MathUtils.degToRad(camera.fov/2))*Math.max(.001,-depth-sphere.radius));}
+    return Math.hypot(c.x-this._pointerPx.x,c.y-this._pointerPx.y)<=radius+this.snapRadiusPx;
+  }
+
   _commitSnap(candidate) {
     const point = this._applyOrthoConstraint(candidate.point);
     const bimObject = candidate.bimObject || null;
@@ -317,7 +396,7 @@ export class SnapManager {
       bimObject,
       objectId: bimObject?.id || null,
       binding,
-      normal: candidate.normal?.clone() || null,
+      normal: candidate.normal?.clone() || (this._frontHit?.face?.normal.clone().transformDirection(this._frontHit.object.matrixWorld)) || null,
     };
     this._showScreenMarker(point, candidate.type);
     this._emitSnapChange();

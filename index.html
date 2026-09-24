@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="ESTRUCTURAS PRO — Diseño, cálculo, comprobación y detallado profesional de estructuras metálicas en 3D.">
-  <title>ESTRUCTURAS PRO — Diseño y cálculo de estructuras metálicas</title>
+  <meta name="description" content="ESTRUCTURAS PRO — Diseño, montaje y documentación de taller de estructuras metálicas en 3D.">
+  <title>ESTRUCTURAS PRO — Taller de estructuras metálicas</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
+  <link rel="stylesheet" href="%BASE_URL%vendor/fontawesome/css/all.min.css">
 </head>
 <body>
   <!-- COMMAND PALETTE -->
@@ -134,63 +134,9 @@
         <span id="sb-chip-cam" class="sb-chip" title="Cámara Perspectiva / Ortográfica">PERS</span>
         <span id="sb-chip-fps" class="sb-chip" title="FPS">60 FPS</span>
         <span class="sb-sep">|</span>
-        <span id="sb-coords">0.000 · 0.000 · 0.000 m</span>
+        <span id="sb-coords">0 · 0 · 0 mm</span>
         <span class="sb-sep">|</span>
-        <span id="sb-version">v6.0 · CE · A22/A26</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- MÓDULO DIDÁCTICO ETSIE -->
-  <div id="tut-overlay" class="hidden">
-    <div id="tut-modal" class="glass-panel">
-      <div class="tut-header">
-        <div class="tut-title">
-          <i class="fa-solid fa-graduation-cap"></i>
-          <div><h3 style="margin:0; font-size:14px;">Módulo didáctico ETSIE</h3><span style="font-size:10px; opacity:0.7;">Nivel examen · Código Estructural</span></div>
-        </div>
-        <button id="tut-close-btn"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <div class="tut-body">
-        <div class="tut-sidebar">
-          <button class="tut-tab active" data-tab="tut-theory"><i class="fa-solid fa-book-open"></i> Teoría</button>
-          <button class="tut-tab" data-tab="tut-tables"><i class="fa-solid fa-table"></i> Prontuario</button>
-          <button class="tut-tab" data-tab="tut-quiz"><i class="fa-solid fa-pen-to-square"></i> Tests</button>
-          <div class="tut-progress-container">
-            <span class="tut-prog-title">Tu Progreso</span>
-            <div class="tut-prog-bar"><div id="tut-prog-fill" style="width: 0%"></div></div>
-            <span id="tut-score">0% completado</span>
-          </div>
-        </div>
-        <div class="tut-content">
-          <div id="tut-theory" class="tut-pane active">
-            <h2>Tornillos Normales a Cortante</h2>
-            <p>La resistencia F<sub>v,Rd</sub> según el Código Estructural · Anejo 26 (EN 1993-1-8) se calcula como:</p>
-            <div class="tut-formula">F<sub>v,Rd</sub> = (α<sub>v</sub> · f<sub>ub</sub> · A) / γ<sub>M2</sub></div>
-            <ul style="font-size:11px; margin-top:8px;">
-              <li><b>α<sub>v</sub></b> = 0.6 para clases 4.6, 5.6, 8.8.</li>
-              <li><b>α<sub>v</sub></b> = 0.5 para clases 4.8, 5.8, 6.8, 10.9.</li>
-              <li><b>A</b> = Área resistente (A<sub>s</sub>) o de la caña.</li>
-            </ul>
-          </div>
-          <div id="tut-tables" class="tut-pane hidden">
-            <h2>Prontuario Áreas (A<sub>s</sub>)</h2>
-            <table class="tut-table" style="width:100%;text-align:left;font-size:11px;border-collapse:collapse;">
-              <tr style="border-bottom:1px solid #444;"><th>Métrica</th><th>A<sub>s</sub> (mm²)</th><th>Agujero (d<sub>0</sub>)</th></tr>
-              <tr><td>M12</td><td>84.3</td><td>13 mm</td></tr>
-              <tr><td>M16</td><td>157</td><td>18 mm</td></tr>
-              <tr><td>M20</td><td>245</td><td>22 mm</td></tr>
-              <tr><td>M24</td><td>353</td><td>26 mm</td></tr>
-              <tr><td>M30</td><td>561</td><td>33 mm</td></tr>
-            </table>
-          </div>
-          <div id="tut-quiz" class="tut-pane hidden">
-            <h2 id="q-title">Pregunta 1</h2>
-            <p id="q-text" style="font-size:12px;">Cargando...</p>
-            <div id="q-options" style="display:flex; flex-direction:column; gap:8px;"></div>
-            <div id="q-feedback" style="margin-top:10px; font-weight:bold;"></div>
-          </div>
-        </div>
+        <span id="sb-version">v7.0 · TALLER · mm</span>
       </div>
     </div>
   </div>
