@@ -9,9 +9,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-  <link rel="stylesheet" href="./vendor/fontawesome/css/all.min.css">
-  <script type="module" crossorigin src="./assets/index-BQSQvDj1-mm-precision-eb916af.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-_83NChnw.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script type="module" crossorigin src="./assets/index-CAtDiggx.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-DcaqlV9a.css">
 </head>
 <body>
   <!-- COMMAND PALETTE -->
@@ -65,7 +65,10 @@
     <div id="canvas-container">
       <!-- VIEW CUBE 3D -->
       <div id="view-cube">
-        <canvas id="nav-cube-canvas" width="256" height="256" title="Cubo de navegación 3D · caras, aristas y esquinas"></canvas>
+        <canvas id="nav-cube-canvas" width="192" height="192" title="Cubo de navegación 3D"></canvas>
+        <button id="nav-cube-home" title="Fit All (Home)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1z"/></svg>
+        </button>
         <div id="nav-cube-gnomon">X · Y · Z</div>
       </div>
 
@@ -83,32 +86,19 @@
       <!-- VIEWPORT OVERLAYS -->
       <div id="viewport-mode-badge">TECHNICAL CLAY</div>
 
-      <!-- COMPLETE CAD TRANSFORM DOCK (shown on selection) -->
-      <div id="mini-transform" class="hidden" role="toolbar" aria-label="Gizmo de transformación">
-        <span class="mt-caption">GIZMO</span>
+      <!-- MINI TRANSFORM WIDGET (shown on selection) -->
+      <div id="mini-transform" class="hidden">
         <button class="mt-btn active" data-mode="translate" title="Mover (G)">
-          <svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M5 10l-2 2 2 2M19 10l2 2-2 2M10 5l2-2 2 2M10 19l2 2 2-2"/></svg><span>Mover</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18M5 10l-2 2 2 2M19 10l2 2-2 2M10 5l2-2 2 2M10 19l2 2 2-2"/></svg>
         </button>
         <button class="mt-btn" data-mode="rotate" title="Rotar (R)">
-          <svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 1 2.34 5.66M4 19v-4h4"/></svg><span>Rotar</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 1 2.34 5.66"/><path d="M4 19v-4h4"/></svg>
         </button>
         <button class="mt-btn" data-mode="scale" title="Escalar (S)">
-          <svg viewBox="0 0 24 24"><path d="M3 21v-6M3 21h6M21 3v6M21 3h-6M14 10l7-7M10 14l-7 7"/></svg><span>Escala</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21v-6M3 21h6M21 3v6M21 3h-6M14 10l7-7M10 14l-7 7"/></svg>
         </button>
-        <i class="mt-sep"></i>
-        <button class="mt-btn mt-text" id="mt-local-global" title="Coordenadas Locales/Globales"><span class="mt-coord-label">GLB</span></button>
-        <button class="mt-btn mt-text active" id="mt-snap-toggle" title="Snap incremental"><span>SNAP</span></button>
-        <i class="mt-sep"></i>
-        <button class="mt-btn mt-axis x active" data-axis="x" title="Mostrar eje X"><span>X</span></button>
-        <button class="mt-btn mt-axis y active" data-axis="y" title="Mostrar eje Y"><span>Y</span></button>
-        <button class="mt-btn mt-axis z active" data-axis="z" title="Mostrar eje Z"><span>Z</span></button>
-        <i class="mt-sep"></i>
-        <button class="mt-btn" id="mt-reset-transform" title="Restablecer transformación">
-          <svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7M4 4v6h6"/></svg><span>Reset</span>
-        </button>
-        <button class="mt-btn" id="mt-fit-selection" title="Centrar cámara en selección">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5"/></svg><span>Centrar</span>
-        </button>
+        <div class="mt-sep"></div>
+        <button class="mt-btn" id="mt-local-global" title="Coordenadas Locales/Globales"><span class="mt-coord-label">GLB</span></button>
       </div>
 
       <!-- SNAP INDICATOR -->
@@ -116,11 +106,6 @@
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v10a7 7 0 0 0 14 0V3"/><path d="M5 8h4M15 8h4M5 3h4M15 3h4"/></svg>
         <span id="snap-type-label">GRID</span>
       </div>
-
-      <!-- TOOL MODE EXIT: never leave a laser, preview or measurement mode armed. -->
-      <button id="tool-mode-escape" class="hidden" type="button" title="Salir de la herramienta activa">
-        <span aria-hidden="true">×</span><b>Salir de herramienta</b>
-      </button>
 
       <!-- COORD READOUT -->
       <div id="coord-readout">
@@ -153,7 +138,7 @@
         <span class="sb-sep">|</span>
         <span id="sb-coords">0 · 0 · 0 mm</span>
         <span class="sb-sep">|</span>
-        <span id="sb-version">v6.1 · AULA ETSIE · CE</span>
+        <span id="sb-version">v6.0 · CE · A22/A26</span>
       </div>
     </div>
   </div>
@@ -164,7 +149,7 @@
       <div class="tut-header">
         <div class="tut-title">
           <i class="fa-solid fa-graduation-cap"></i>
-          <div><h3 style="margin:0; font-size:14px;">Módulo didáctico ETSIE</h3><span style="font-size:10px; opacity:0.7;">Nivel examen · Código Estructural</span></div>
+          <div><h3 style="margin:0; font-size:14px;">Aula de montaje ETSIE</h3><span style="font-size:10px; opacity:0.7;">Taller didáctico · Uniones y fabricación</span></div>
         </div>
         <button id="tut-close-btn"><i class="fa-solid fa-xmark"></i></button>
       </div>
@@ -181,31 +166,33 @@
         </div>
         <div class="tut-content">
           <div id="tut-theory" class="tut-pane active">
-            <h2>Tornillos Normales a Cortante</h2>
-            <p>La resistencia F<sub>v,Rd</sub> según el Código Estructural · Anejo 26 (EN 1993-1-8) se calcula como:</p>
-            <div class="tut-formula">F<sub>v,Rd</sub> = (α<sub>v</sub> · f<sub>ub</sub> · A) / γ<sub>M2</sub></div>
-            <ul style="font-size:11px; margin-top:8px;">
-              <li><b>α<sub>v</sub></b> = 0.6 para clases 4.6, 5.6, 8.8.</li>
-              <li><b>α<sub>v</sub></b> = 0.5 para clases 4.8, 5.8, 6.8, 10.9.</li>
-              <li><b>A</b> = Área resistente (A<sub>s</sub>) o de la caña.</li>
-            </ul>
+            <h2>Secuencia básica de montaje</h2>
+            <p>Un montaje claro comienza con piezas identificadas, cotas en milímetros y planos ortográficos. Presenta los perfiles en su posición, alinea los taladros y comprueba aplomado, nivel y holguras antes del apriete final.</p>
+            <ol class="tut-workflow-list">
+              <li><b>Preparar:</b> revisar marcas, longitudes, espesores y orientación de cada perfil.</li>
+              <li><b>Presentar:</b> colocar pilares, vigas y chapas con apoyos y medios auxiliares adecuados.</li>
+              <li><b>Alinear:</b> comprobar ejes, diagonales, nivel y aplomado en las vistas ortográficas.</li>
+              <li><b>Unir:</b> colocar pernos, arandelas y tuercas; ejecutar las soldaduras según el detalle.</li>
+              <li><b>Verificar:</b> revisar encaje, holguras, rigidizadores, cartelas y acabado.</li>
+            </ol>
+            <p class="tut-note">Las dimensiones y los detalles de fabricación siempre deben seguir los planos aprobados y las especificaciones aplicables.</p>
           </div>
           <div id="tut-tables" class="tut-pane hidden">
-            <h2>Prontuario Áreas (A<sub>s</sub>)</h2>
-            <table class="tut-table" style="width:100%;text-align:left;font-size:11px;border-collapse:collapse;">
-              <tr style="border-bottom:1px solid #444;"><th>Métrica</th><th>A<sub>s</sub> (mm²)</th><th>Agujero (d<sub>0</sub>)</th></tr>
-              <tr><td>M12</td><td>84.3</td><td>13 mm</td></tr>
-              <tr><td>M16</td><td>157</td><td>18 mm</td></tr>
-              <tr><td>M20</td><td>245</td><td>22 mm</td></tr>
-              <tr><td>M24</td><td>353</td><td>26 mm</td></tr>
-              <tr><td>M30</td><td>561</td><td>33 mm</td></tr>
+            <h2>Comprobaciones de taller</h2>
+            <table class="tut-table tut-workshop-table" style="width:100%;text-align:left;font-size:11px;border-collapse:collapse;">
+              <tr><th>Elemento</th><th>Qué revisar</th><th>Unidad</th></tr>
+              <tr><td>Perfil</td><td>Serie, longitud, orientación y extremos</td><td>mm</td></tr>
+              <tr><td>Chapa</td><td>Ancho, alto, espesor y contorno</td><td>mm</td></tr>
+              <tr><td>Taladro</td><td>Diámetro, separación y distancia al borde</td><td>mm</td></tr>
+              <tr><td>Unión</td><td>Alineación, apoyo, holgura y accesibilidad</td><td>mm</td></tr>
+              <tr><td>Soldadura</td><td>Longitud y garganta indicadas en el detalle</td><td>mm</td></tr>
             </table>
           </div>
           <div id="tut-quiz" class="tut-pane hidden">
             <h2 id="q-title">Pregunta 1</h2>
-            <p id="q-text" style="font-size:12px;">Cargando...</p>
-            <div id="q-options" style="display:flex; flex-direction:column; gap:8px;"></div>
-            <div id="q-feedback" style="margin-top:10px; font-weight:bold;"></div>
+            <p id="q-text" class="q-question-text">Cargando...</p>
+            <div id="q-options"></div>
+            <div id="q-feedback"></div>
           </div>
         </div>
       </div>
