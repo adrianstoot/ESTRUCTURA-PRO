@@ -125,7 +125,7 @@ export class MeasureTool {
         const A = this._polygonArea([...this._points, snapPt]);
         const perim = this._polygonPerimeter([...this._points, snapPt, this._points[0]]);
         const center = this._polygonCentroid([...this._points, snapPt]);
-        this._tempLabel = this._createLabelDiv(`A=${A.toFixed(3)} m² · P=${perim.toFixed(2)} m  [Enter=cerrar]`, center, true);
+        this._tempLabel = this._createLabelDiv(`A=${(A * 1e6).toFixed(0)} mm² · P=${(perim * 1000).toFixed(0)} mm  [Enter=cerrar]`, center, true);
       }
       return;
     }
@@ -138,13 +138,13 @@ export class MeasureTool {
 
     const distance = this.pointA.distanceTo(snapPt);
     const mid = new THREE.Vector3().addVectors(this.pointA, snapPt).multiplyScalar(0.5);
-    this._tempLabel = this._createLabelDiv(`${(distance * 100).toFixed(1)} cm`, mid, true);
+    this._tempLabel = this._createLabelDiv(`${(distance * 1000).toFixed(0)} mm`, mid, true);
   }
 
   _mkDashedLine(pts) {
     const geo = new THREE.BufferGeometry().setFromPoints(pts);
     const mat = new THREE.LineDashedMaterial({
-      color: 0xeab308, dashSize: 0.05, gapSize: 0.03, depthTest: false,
+      color: 0xeab308, dashSize: 0.002, gapSize: 0.001, depthTest: false,
     });
     const line = new THREE.Line(geo, mat);
     line.computeLineDistances();
@@ -155,8 +155,7 @@ export class MeasureTool {
 
   _createMeasurement(a, b) {
     const dist = a.distanceTo(b);
-    const distCm = (dist * 100).toFixed(1);
-    const distM = dist.toFixed(3);
+    const distMm = (dist * 1000).toFixed(0);
 
     // Solid line
     const geo = new THREE.BufferGeometry().setFromPoints([a, b]);
@@ -167,7 +166,7 @@ export class MeasureTool {
     this.sceneManager.scene.add(line);
 
     // Endpoint markers (small spheres)
-    const markerGeo = new THREE.SphereGeometry(0.02, 8, 8);
+    const markerGeo = new THREE.SphereGeometry(0.004, 8, 8);
     const markerMat = new THREE.MeshBasicMaterial({ color: 0xeab308, depthTest: false });
     const ma = new THREE.Mesh(markerGeo, markerMat);
     ma.position.copy(a);
@@ -180,7 +179,7 @@ export class MeasureTool {
 
     // Label
     const mid = new THREE.Vector3().addVectors(a, b).multiplyScalar(0.5);
-    const label = this._createLabelDiv(`${distCm} cm (${distM} m)`, mid, false);
+    const label = this._createLabelDiv(`${distMm} mm`, mid, false);
 
     this.measurements.push({ line, ma, mb, label, a: a.clone(), b: b.clone(), dist });
   }
@@ -281,7 +280,7 @@ export class MeasureTool {
     }
     const arcGeo = new THREE.BufferGeometry().setFromPoints(arcPts);
     const arcMat = new THREE.LineDashedMaterial({
-      color: 0xeab308, dashSize: 0.02, gapSize: 0.015, depthTest: false,
+      color: 0xeab308, dashSize: 0.002, gapSize: 0.001, depthTest: false,
     });
     const arc = new THREE.Line(arcGeo, arcMat);
     arc.computeLineDistances();
@@ -329,7 +328,7 @@ export class MeasureTool {
     const A = this._polygonArea(this._points);
     const P = this._polygonPerimeter(pts);
     const center = this._polygonCentroid(this._points);
-    const label = this._createLabelDiv(`A = ${A.toFixed(3)} m² · P = ${P.toFixed(2)} m`, center, false);
+    const label = this._createLabelDiv(`A = ${(A * 1e6).toFixed(0)} mm² · P = ${(P * 1000).toFixed(0)} mm`, center, false);
 
     this.measurements.push({ type: 'area', line, label, area: A, perim: P });
     this._points = [];

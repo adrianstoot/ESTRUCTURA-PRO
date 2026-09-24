@@ -10,6 +10,9 @@ export class GridManager {
     this.gridGroup.name = 'GridSystem';
     this.scene.add(this.gridGroup);
     this.currentSize = initialSize;
+    // The model remains in metres internally; the displayed workshop grid is
+    // adaptive and starts at 10 mm, switching to a 1 mm pitch for close work.
+    this.gridStep = 0.01;
     this.groundPlane = null;
     this.visible = true;
     this.buildGrid(initialSize);
@@ -28,15 +31,17 @@ export class GridManager {
     }
     this.currentSize = size;
 
-    // Minor grid — subtle
-    const minorGrid = new THREE.GridHelper(size, size * 2, 0x778894, 0xa8b4bc);
+    // Fine grid: divisions represent real millimetres (not arbitrary metres).
+    const minorDivisions = Math.max(1, Math.round(size / this.gridStep));
+    const majorDivisions = Math.max(1, Math.round(size / (this.gridStep * 10)));
+    const minorGrid = new THREE.GridHelper(size, minorDivisions, 0x778894, 0xa8b4bc);
     minorGrid.material.transparent = true;
     minorGrid.material.opacity = 0.34;
     minorGrid.position.y = 0;
     this.gridGroup.add(minorGrid);
 
     // Major grid — slightly more visible
-    const majorGrid = new THREE.GridHelper(size, size / 2, 0x5b7181, 0x82939e);
+    const majorGrid = new THREE.GridHelper(size, majorDivisions, 0x5b7181, 0x82939e);
     majorGrid.material.transparent = true;
     majorGrid.material.opacity = 0.46;
     majorGrid.position.y = 0.001;
@@ -51,7 +56,7 @@ export class GridManager {
     this.gridGroup.add(this.groundPlane);
 
     // Origin indicator (small dot)
-    const originGeo = new THREE.SphereGeometry(0.04, 8, 8);
+    const originGeo = new THREE.SphereGeometry(0.004, 8, 8);
     const originMat = new THREE.MeshBasicMaterial({ color: 0x4a5070, depthTest: false });
     const origin = new THREE.Mesh(originGeo, originMat);
     origin.position.y = 0.002;
@@ -73,6 +78,38 @@ export class GridManager {
 
   setSize(size) {
     this.buildGrid(size);
+  }
+
+  /** Keep grid cells legible while allowing true 1 mm work when zoomed in. */
+  updateForCamera(camera, viewportHeight, target = new THREE.Vector3()) {
+    if (!camera || !Number.isFinite(viewportHeight) || viewportHeight <= 0) return;
+
+    let visibleWorldHeight;
+    if (camera.isOrthographicCamera) {
+      visibleWorldHeight = (camera.top - camera.bottom) / Math.max(camera.zoom, 1e-6);
+    } else if (camera.isPerspectiveCamera) {
+      const distance = camera.position.distanceTo(target);
+      visibleWorldHeight = 2 * distance * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    } else {
+      return;
+    }
+
+    const desiredStep = visibleWorldHeight * 8 / viewportHeight;
+    if (!Number.isFinite(desiredStep) || desiredStep <= 0) return;
+
+    const magnitude = 10 ** Math.floor(Math.log10(desiredStep));
+    const ratio = desiredStep / magnitude;
+    const niceRatio = ratio < 1.5 ? 1 : ratio < 3.5 ? 2 : ratio < 7.5 ? 5 : 10;
+    const nextStep = THREE.MathUtils.clamp(
+      niceRatio * magnitude,
+      0.001,
+      this.currentSize / 8,
+    );
+
+    // Avoid rebuilding geometry on every OrbitControls change event.
+    if (Math.abs(Math.log(nextStep / this.gridStep)) < Math.log(1.4)) return;
+    this.gridStep = nextStep;
+    this.buildGrid(this.currentSize);
   }
 
   setVisible(v) {

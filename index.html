@@ -107,9 +107,9 @@
 
       <!-- COORD READOUT -->
       <div id="coord-readout">
-        <span><b>X</b> <span id="cr-x">0.000</span></span>
-        <span><b>Y</b> <span id="cr-y">0.000</span></span>
-        <span><b>Z</b> <span id="cr-z">0.000</span></span>
+        <span><b>X</b> <span id="cr-x">0</span></span>
+        <span><b>Y</b> <span id="cr-y">0</span></span>
+        <span><b>Z</b> <span id="cr-z">0</span></span>
       </div>
     </div>
 
@@ -134,7 +134,7 @@
         <span id="sb-chip-cam" class="sb-chip" title="Cámara Perspectiva / Ortográfica">PERS</span>
         <span id="sb-chip-fps" class="sb-chip" title="FPS">60 FPS</span>
         <span class="sb-sep">|</span>
-        <span id="sb-coords">0.000 · 0.000 · 0.000 m</span>
+        <span id="sb-coords">0 · 0 · 0 mm</span>
         <span class="sb-sep">|</span>
         <span id="sb-version">v6.0 · CE · A22/A26</span>
       </div>
@@ -147,7 +147,7 @@
       <div class="tut-header">
         <div class="tut-title">
           <i class="fa-solid fa-graduation-cap"></i>
-          <div><h3 style="margin:0; font-size:14px;">Módulo didáctico ETSIE</h3><span style="font-size:10px; opacity:0.7;">Nivel examen · Código Estructural</span></div>
+          <div><h3 style="margin:0; font-size:14px;">Aula de montaje ETSIE</h3><span style="font-size:10px; opacity:0.7;">Taller didáctico · Uniones y fabricación</span></div>
         </div>
         <button id="tut-close-btn"><i class="fa-solid fa-xmark"></i></button>
       </div>
@@ -164,31 +164,33 @@
         </div>
         <div class="tut-content">
           <div id="tut-theory" class="tut-pane active">
-            <h2>Tornillos Normales a Cortante</h2>
-            <p>La resistencia F<sub>v,Rd</sub> según el Código Estructural · Anejo 26 (EN 1993-1-8) se calcula como:</p>
-            <div class="tut-formula">F<sub>v,Rd</sub> = (α<sub>v</sub> · f<sub>ub</sub> · A) / γ<sub>M2</sub></div>
-            <ul style="font-size:11px; margin-top:8px;">
-              <li><b>α<sub>v</sub></b> = 0.6 para clases 4.6, 5.6, 8.8.</li>
-              <li><b>α<sub>v</sub></b> = 0.5 para clases 4.8, 5.8, 6.8, 10.9.</li>
-              <li><b>A</b> = Área resistente (A<sub>s</sub>) o de la caña.</li>
-            </ul>
+            <h2>Secuencia básica de montaje</h2>
+            <p>Un montaje claro comienza con piezas identificadas, cotas en milímetros y planos ortográficos. Presenta los perfiles en su posición, alinea los taladros y comprueba aplomado, nivel y holguras antes del apriete final.</p>
+            <ol class="tut-workflow-list">
+              <li><b>Preparar:</b> revisar marcas, longitudes, espesores y orientación de cada perfil.</li>
+              <li><b>Presentar:</b> colocar pilares, vigas y chapas con apoyos y medios auxiliares adecuados.</li>
+              <li><b>Alinear:</b> comprobar ejes, diagonales, nivel y aplomado en las vistas ortográficas.</li>
+              <li><b>Unir:</b> colocar pernos, arandelas y tuercas; ejecutar las soldaduras según el detalle.</li>
+              <li><b>Verificar:</b> revisar encaje, holguras, rigidizadores, cartelas y acabado.</li>
+            </ol>
+            <p class="tut-note">Las dimensiones y los detalles de fabricación siempre deben seguir los planos aprobados y las especificaciones aplicables.</p>
           </div>
           <div id="tut-tables" class="tut-pane hidden">
-            <h2>Prontuario Áreas (A<sub>s</sub>)</h2>
-            <table class="tut-table" style="width:100%;text-align:left;font-size:11px;border-collapse:collapse;">
-              <tr style="border-bottom:1px solid #444;"><th>Métrica</th><th>A<sub>s</sub> (mm²)</th><th>Agujero (d<sub>0</sub>)</th></tr>
-              <tr><td>M12</td><td>84.3</td><td>13 mm</td></tr>
-              <tr><td>M16</td><td>157</td><td>18 mm</td></tr>
-              <tr><td>M20</td><td>245</td><td>22 mm</td></tr>
-              <tr><td>M24</td><td>353</td><td>26 mm</td></tr>
-              <tr><td>M30</td><td>561</td><td>33 mm</td></tr>
+            <h2>Comprobaciones de taller</h2>
+            <table class="tut-table tut-workshop-table" style="width:100%;text-align:left;font-size:11px;border-collapse:collapse;">
+              <tr><th>Elemento</th><th>Qué revisar</th><th>Unidad</th></tr>
+              <tr><td>Perfil</td><td>Serie, longitud, orientación y extremos</td><td>mm</td></tr>
+              <tr><td>Chapa</td><td>Ancho, alto, espesor y contorno</td><td>mm</td></tr>
+              <tr><td>Taladro</td><td>Diámetro, separación y distancia al borde</td><td>mm</td></tr>
+              <tr><td>Unión</td><td>Alineación, apoyo, holgura y accesibilidad</td><td>mm</td></tr>
+              <tr><td>Soldadura</td><td>Longitud y garganta indicadas en el detalle</td><td>mm</td></tr>
             </table>
           </div>
           <div id="tut-quiz" class="tut-pane hidden">
             <h2 id="q-title">Pregunta 1</h2>
-            <p id="q-text" style="font-size:12px;">Cargando...</p>
-            <div id="q-options" style="display:flex; flex-direction:column; gap:8px;"></div>
-            <div id="q-feedback" style="margin-top:10px; font-weight:bold;"></div>
+            <p id="q-text" class="q-question-text">Cargando...</p>
+            <div id="q-options"></div>
+            <div id="q-feedback"></div>
           </div>
         </div>
       </div>

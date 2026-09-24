@@ -525,9 +525,9 @@ export class SectionDrawer {
     const eng = el.engineeringData;
 
     const pieces = [];
-    if (eng.area) pieces.push(`A ${eng.area.toFixed(1)} cm²`);
-    if (eng.Iy)   pieces.push(`Iy ${eng.Iy.toFixed(0)} cm⁴`);
-    if (eng.Iz)   pieces.push(`Iz ${eng.Iz.toFixed(0)} cm⁴`);
+    if (eng.area) pieces.push(`A ${(eng.area * 100).toFixed(0)} mm²`);
+    if (eng.Iy)   pieces.push(`Iy ${(eng.Iy * 10000).toFixed(0)} mm⁴`);
+    if (eng.Iz)   pieces.push(`Iz ${(eng.Iz * 10000).toFixed(0)} mm⁴`);
     if (eng.sectionClass) pieces.push(`Clase ${eng.sectionClass}`);
 
     if (!pieces.length) return;

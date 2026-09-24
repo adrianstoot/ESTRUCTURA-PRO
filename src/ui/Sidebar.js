@@ -88,7 +88,7 @@ export class Sidebar {
           </div>
           <div class="tree-group reference-tree__level"><div class="tree-group__label"><span class="tree-caret">⌄</span><i class="fa-solid fa-building-columns"></i><span>Alzados</span></div>
             <button type="button" class="tree-view" data-tree-view="view-front">ALZADO NORTE</button>
-            <button type="button" class="tree-view" data-tree-view="view-front">ALZADO SUR</button>
+            <button type="button" class="tree-view" data-tree-view="view-back">ALZADO SUR</button>
             <button type="button" class="tree-view" data-tree-view="view-right">ALZADO ESTE</button>
             <button type="button" class="tree-view" data-tree-view="view-left">ALZADO OESTE</button>
           </div>
@@ -114,7 +114,6 @@ export class Sidebar {
           </div>`;
         }).join('')}
       </div>
-      <div class="tree-section tree-static"><span class="tree-caret">›</span><i class="fa-solid fa-chart-line"></i><span>Modelo analítico</span></div>
       <div class="tree-section tree-static"><span class="tree-caret">›</span><i class="fa-solid fa-table"></i><span>Tablas de materiales y mediciones</span></div>
       <div class="tree-section tree-static"><span class="tree-caret">›</span><i class="fa-regular fa-file-lines"></i><span>PLANOS (Hoja)</span></div>
       <div class="tree-section tree-static"><span class="tree-caret">›</span><i class="fa-solid fa-shapes"></i><span>FAMILIAS / GRUPOS</span></div>`;

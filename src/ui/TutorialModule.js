@@ -1,3 +1,5 @@
+const PROGRESS_KEY = 'estructuras-pro:assembly-quiz:v1';
+
 export class TutorialModule {
   constructor() {
     this.overlay = document.getElementById('tut-overlay');
@@ -6,389 +8,136 @@ export class TutorialModule {
     this.panes = document.querySelectorAll('.tut-pane');
     this.progFill = document.getElementById('tut-prog-fill');
     this.scoreText = document.getElementById('tut-score');
-    
-    // Quiz state
     this.currentQ = 0;
     this.score = 0;
-    
     this.questions = [
-      {
-        topic: "Clasificación de secciones",
-        q: "Según el Anejo 22 (EN 1993-1-1), ¿qué caracteriza a una sección de Clase 1?",
-        opts: [
-          "Puede formar una rótula plástica con capacidad de rotación suficiente",
-          "Solo alcanza el momento elástico antes de abollar",
-          "Debe calcularse siempre con propiedades efectivas",
-          "No puede trabajar a compresión"
-        ],
-        ans: 0,
-        explanation: "Una sección Clase 1 puede desarrollar una rótula plástica y mantener la rotación exigida por un análisis plástico."
-      },
-      {
-        topic: "Clasificación de secciones",
-        q: "En una sección de Clase 4 sometida a compresión o flexión, el pandeo local se considera mediante:",
-        opts: [
-          "El área y módulo resistentes brutos sin reducción",
-          "Propiedades eficaces, como Aeff o Weff",
-          "Un aumento del límite elástico",
-          "La reducción exclusiva del módulo E"
-        ],
-        ans: 1,
-        explanation: "Las secciones Clase 4 requieren propiedades eficaces que descuentan las zonas esbeltas afectadas por pandeo local."
-      },
-      {
-        topic: "Clasificación de secciones",
-        q: "El parámetro ε = √(235/fy) interviene en los límites ancho/espesor. Si aumenta fy manteniendo la geometría:",
-        opts: [
-          "ε aumenta y la clasificación mejora",
-          "ε disminuye y la clasificación puede ser más desfavorable",
-          "ε no cambia",
-          "La sección pasa automáticamente a Clase 1"
-        ],
-        ans: 1,
-        explanation: "Al aumentar fy disminuye ε; para la misma relación c/t, los límites de clasificación resultan más exigentes."
-      },
-      {
-        topic: "Clasificación de secciones",
-        q: "¿Qué módulo resistente corresponde normalmente al cálculo de My,Rd?",
-        opts: [
-          "Wpl,y en Clases 1-2; Wel,y en Clase 3; Weff,y en Clase 4",
-          "Wel,y en todas las clases",
-          "Wpl,y únicamente en Clase 1 y cero en las demás",
-          "Iy directamente, sin dividir por una distancia"
-        ],
-        ans: 0,
-        explanation: "El Anejo 22 selecciona el módulo plástico, elástico o eficaz según la clase de la sección."
-      },
-      {
-        topic: "Pandeo",
-        q: "Para una barra biarticulada, E = 210 000 MPa, I = 80·10⁶ mm⁴ y Lcr = 4 000 mm. ¿Cuál es aproximadamente Ncr = π²EI/Lcr²?",
-        opts: ["1,04 MN", "10,36 MN", "103,6 MN", "0,104 MN"],
-        ans: 1,
-        explanation: "Ncr = π²·210000·80·10⁶/4000² ≈ 10,36·10⁶ N = 10,36 MN."
-      },
-      {
-        topic: "Pandeo",
-        q: "Para una sección de Clase 1-3, la esbeltez adimensional de pandeo por flexión se expresa como:",
-        opts: [
-          "λ̄ = √(A·fy/Ncr)",
-          "λ̄ = NEd/Ncr",
-          "λ̄ = Lcr/I",
-          "λ̄ = √(Ncr/(A·fy))"
-        ],
-        ans: 0,
-        explanation: "La esbeltez adimensional compara la resistencia de la sección A·fy con la carga crítica elástica Ncr."
-      },
-      {
-        topic: "Pandeo",
-        q: "La resistencia de cálculo a pandeo de una barra comprimida de Clase 1-3 es:",
-        opts: [
-          "Nb,Rd = A·fy·γM1",
-          "Nb,Rd = χ·A·fy/γM1",
-          "Nb,Rd = Ncr/χ",
-          "Nb,Rd = χ·E·I/Lcr"
-        ],
-        ans: 1,
-        explanation: "El coeficiente reductor χ recoge la pérdida de resistencia por esbeltez e imperfecciones: Nb,Rd = χAfy/γM1."
-      },
-      {
-        topic: "Pandeo",
-        q: "En un perfil HEB comprimido, ¿por qué deben comprobarse los ejes y-y y z-z por separado?",
-        opts: [
-          "Porque fy cambia con el eje",
-          "Porque I, Lcr y la curva de pandeo pueden ser distintos en cada eje",
-          "Porque γM1 vale siempre 1,0 en y-y y 1,25 en z-z",
-          "Porque solo el eje fuerte puede pandear"
-        ],
-        ans: 1,
-        explanation: "La inercia, la longitud eficaz y la curva de pandeo pueden diferir; suele gobernar el eje con menor resistencia, pero debe verificarse."
-      },
-      {
-        topic: "Vuelco lateral",
-        q: "El vuelco lateral de una viga flectada combina principalmente:",
-        opts: [
-          "Desplazamiento lateral del ala comprimida y torsión de la sección",
-          "Aplastamiento del alma y tracción de los tornillos",
-          "Pandeo local exclusivo del ala traccionada",
-          "Retracción térmica y fluencia"
-        ],
-        ans: 0,
-        explanation: "El pandeo lateral-torsional aparece cuando la zona comprimida puede desplazarse lateralmente y la sección gira."
-      },
-      {
-        topic: "Vuelco lateral",
-        q: "Una viga con arriostramiento lateral continuo y eficaz del ala comprimida:",
-        opts: [
-          "Siempre tiene χLT = 0",
-          "Puede considerar no relevante el vuelco lateral si el arriostramiento se justifica",
-          "Debe duplicar MEd",
-          "Solo puede comprobarse como sección Clase 4"
-        ],
-        ans: 1,
-        explanation: "Un arriostramiento continuo adecuado puede impedir el modo lateral-torsional, pero su eficacia debe estar justificada."
-      },
-      {
-        topic: "ELU / ELS",
-        q: "¿Qué pareja relaciona correctamente los estados límite?",
-        opts: [
-          "ELU: resistencia y estabilidad; ELS: flecha, vibración y uso",
-          "ELU: confort; ELS: rotura",
-          "ELU: solo soldaduras; ELS: solo perfiles",
-          "ELU y ELS son comprobaciones idénticas"
-        ],
-        ans: 0,
-        explanation: "ELU controla seguridad frente a rotura o inestabilidad; ELS controla funcionamiento, deformaciones y confort."
-      },
-      {
-        topic: "ELU / ELS",
-        q: "Si el aprovechamiento η = Ed/Rd vale 1,08, la interpretación correcta es:",
-        opts: [
-          "Cumple con una reserva del 8 %",
-          "No cumple: la solicitación supera la resistencia",
-          "Cumple únicamente en ELS",
-          "No puede interpretarse porque η siempre debe ser negativo"
-        ],
-        ans: 1,
-        explanation: "La condición de resistencia es η ≤ 1,00. Un valor 1,08 supera la capacidad en un 8 %."
-      },
-      {
-        topic: "ELU / ELS",
-        q: "Para estimar de forma coherente la flecha de una viga no basta con conocer MEd. También se necesita:",
-        opts: [
-          "El modelo de apoyos, la distribución de carga y la rigidez E·I",
-          "Solo el color del material",
-          "Únicamente la resistencia última fu",
-          "El diámetro de los tornillos de la unión"
-        ],
-        ans: 0,
-        explanation: "La deformada depende de apoyos, cargas de servicio, longitud y rigidez flexional; MEd de ELU por sí solo no define la flecha."
-      },
-      {
-        topic: "Uniones atornilladas",
-        q: "Para un tornillo métrico M16 de rosca normal, el área resistente a tracción As es aproximadamente:",
-        opts: ["84,3 mm²", "157 mm²", "201 mm²", "245 mm²"],
-        ans: 1,
-        explanation: "El área resistente de la rosca de un M16 es As = 157 mm²; 201 mm² es aproximadamente el área bruta del vástago."
-      },
-      {
-        topic: "Uniones atornilladas",
-        q: "Para un M16 8.8 no avellanado, con k2 = 0,9 y γM2 = 1,25, ¿cuál es Ft,Rd = k2·fub·As/γM2?",
-        opts: ["45,2 kN", "67,8 kN", "90,4 kN", "120,6 kN"],
-        ans: 2,
-        explanation: "Ft,Rd = 0,9·800·157/1,25 = 90 432 N ≈ 90,4 kN."
-      },
-      {
-        topic: "Uniones atornilladas",
-        q: "En la resistencia a cortante Fv,Rd de un tornillo, si el plano de corte atraviesa la rosca se utiliza normalmente:",
-        opts: [
-          "El área resistente As",
-          "Siempre el área bruta πd²/4",
-          "El área de la chapa",
-          "El módulo resistente del perfil"
-        ],
-        ans: 0,
-        explanation: "Cuando la rosca queda en el plano de corte se emplea As; si el plano atraviesa el vástago liso puede emplearse el área bruta."
-      },
-      {
-        topic: "Uniones atornilladas",
-        q: "La resistencia a aplastamiento Fb,Rd = k1·αb·fu·d·t/γM2 depende de:",
-        opts: [
-          "Distancias a borde, separaciones, fu de la chapa, diámetro y espesor",
-          "Solo de fy del tornillo",
-          "Únicamente de E y ν",
-          "La longitud total de la viga"
-        ],
-        ans: 0,
-        explanation: "Los coeficientes k1 y αb incorporan bordes, separaciones y relación de resistencias; además intervienen fu, d y t."
-      },
-      {
-        topic: "Uniones atornilladas",
-        q: "La interacción simplificada de Anejo 26 (EN 1993-1-8) para un tornillo sometido a cortante y tracción es:",
-        opts: [
-          "Fv,Ed/Fv,Rd + Ft,Ed/(1,4·Ft,Rd) ≤ 1",
-          "Fv,Ed + Ft,Ed ≤ 1 kN",
-          "Fv,Rd/Fv,Ed − Ft,Rd/Ft,Ed ≤ 0",
-          "(Fv,Ed·Ft,Ed)² ≤ 1"
-        ],
-        ans: 0,
-        explanation: "La comprobación combina los dos aprovechamientos e incluye el factor 1,4 en el término de tracción."
-      },
-      {
-        topic: "Grupos de tornillos",
-        q: "En una matriz de tornillos, un momento Mx que abre la unión se reparte elásticamente como una tracción adicional:",
-        opts: [
-          "Igual en todos los tornillos, independientemente de su posición",
-          "Proporcional a yi/Σy²",
-          "Proporcional a 1/yi",
-          "Solo en el tornillo más próximo al centro"
-        ],
-        ans: 1,
-        explanation: "En el reparto elástico, Ft,i incluye Mx·yi/Σy²; los tornillos más alejados del centro reciben mayor incremento."
-      },
-      {
-        topic: "Soldaduras",
-        q: "En el método simplificado para un cordón de ángulo, la resistencia total se obtiene con:",
-        opts: [
-          "fvw,d = fu/(√3·βw·γM2) y Fw,Rd = fvw,d·a·Leff",
-          "Fw,Rd = E·I/L²",
-          "Fw,Rd = fy·d²",
-          "Fw,Rd = fu/(a·Leff)"
-        ],
-        ans: 0,
-        explanation: "La resistencia por unidad de longitud es fvw,d·a; multiplicarla por Leff proporciona la resistencia del cordón comprobado."
-      },
-      {
-        topic: "Soldaduras",
-        q: "Según Anejo 26 (EN 1993-1-8), un cordón resistente con garganta a debe tener una longitud eficaz no inferior a:",
-        opts: [
-          "max(30 mm, 6a)",
-          "2a",
-          "10 mm sin depender de a",
-          "La mitad del diámetro del tornillo"
-        ],
-        ans: 0,
-        explanation: "Los cordones con Leff menor que 30 mm o menor que 6a no deben considerarse resistentes; gobierna el mayor límite."
-      }
+      { topic: 'Uniones', q: '¿Cuál es la diferencia básica entre un nudo rígido y uno articulado?', opts: ['El rígido transmite giro y momento; el articulado permite el giro relativo', 'El rígido solo se monta con madera', 'El articulado no puede tener tornillos', 'No hay ninguna diferencia'], ans: 0, explanation: 'La clasificación describe cómo se restringe el giro entre las piezas.' },
+      { topic: 'Uniones', q: '¿Qué debe conseguir una unión articulada de viga?', opts: ['Permitir el giro previsto y transferir las acciones que defina el detalle', 'Impedir cualquier movimiento en todos los ejes', 'Sustituir la viga por una chapa', 'Evitar que se monte el pilar'], ans: 0, explanation: 'El detalle constructivo define la rotación y la transferencia prevista.' },
+      { topic: 'Apoyos', q: '¿Para qué se utiliza normalmente el neopreno en un apoyo?', opts: ['Para repartir el contacto y admitir pequeños giros o movimientos', 'Para sustituir los tornillos de alta resistencia', 'Para aumentar el canto de la viga', 'Para marcar los ejes de replanteo'], ans: 0, explanation: 'El neopreno forma una capa de apoyo deformable entre superficies.' },
+      { topic: 'Placas base', q: '¿Qué función cumple una placa base bajo un pilar metálico?', opts: ['Apoyar el pilar y repartir la transmisión hacia el hormigón', 'Cerrar el extremo superior del pilar', 'Unir dos chapas de cubierta', 'Evitar el uso de una cimentación'], ans: 0, explanation: 'La placa base proporciona una superficie de apoyo y conexión con la cimentación.' },
+      { topic: 'Anclajes', q: '¿Qué elemento fija habitualmente la placa base a la cimentación?', opts: ['Pernos de anclaje', 'Arandelas de plástico', 'Un perfil UPN suelto', 'Una cartela de cubierta'], ans: 0, explanation: 'Los anclajes se disponen en la cimentación y sujetan la placa base.' },
+      { topic: 'Rigidizadores', q: '¿Para qué sirve un rigidizador unido al alma de una viga?', opts: ['Para limitar deformaciones locales y ayudar a transmitir cargas concentradas', 'Para alargar la viga sin empalme', 'Para tapar todos los agujeros', 'Para cambiar el grado del acero'], ans: 0, explanation: 'El rigidizador refuerza localmente el alma donde lo requiere el detalle.' },
+      { topic: 'Cartelas', q: '¿Qué aporta una cartela en el encuentro de una diagonal?', opts: ['Una chapa de conexión para unir la diagonal con el resto del nudo', 'Un acabado decorativo sin contacto con las barras', 'Un apoyo de neopreno', 'Un agujero para izar el edificio'], ans: 0, explanation: 'La cartela crea la superficie donde se conectan una o varias barras.' },
+      { topic: 'Placas de testa', q: '¿Dónde se coloca normalmente una chapa de testa?', opts: ['En el extremo de una viga para conectarla a otra pieza', 'Debajo del hormigón de limpieza', 'En mitad del alma sin conexión', 'En el interior de un tornillo'], ans: 0, explanation: 'La chapa de testa se fabrica en el extremo de la viga y se une a la pieza receptora.' },
+      { topic: 'Tornillería', q: '¿Qué función principal tiene una arandela bajo una tuerca o una cabeza de tornillo?', opts: ['Repartir el apoyo local y proteger la superficie de contacto', 'Aumentar la longitud de la pieza', 'Sustituir la placa de conexión', 'Bloquear la cámara 3D'], ans: 0, explanation: 'La arandela ofrece una superficie de apoyo mayor que la tuerca o la cabeza.' },
+      { topic: 'Tornillería', q: '¿Qué indica una designación como M16 en un tornillo?', opts: ['Un diámetro nominal de rosca de 16 mm', 'Una longitud de 16 m', 'Una resistencia de 16 kN', 'Un agujero de 16 cm'], ans: 0, explanation: 'M16 es una designación métrica; el diámetro nominal de la rosca es 16 mm.' },
+      { topic: 'Montaje', q: 'Antes de apretar definitivamente los tornillos de un pórtico, conviene:', opts: ['Alinear las piezas y comprobar aplomado, nivel y geometría', 'Retirar todos los elementos de medida', 'Cortar los pernos sobrantes sin revisar', 'Pintar las superficies de contacto'], ans: 0, explanation: 'La comprobación geométrica previa evita fijar una estructura fuera de posición.' },
+      { topic: 'Montaje', q: '¿Qué ayuda a mantener un pilar vertical durante el montaje?', opts: ['Comprobar su aplomado con una referencia o instrumento de medida', 'Medir solo el ancho de la placa base', 'Apretar un único tornillo sin revisar', 'Cambiar la vista a perspectiva'], ans: 0, explanation: 'El aplomado controla la verticalidad del pilar en dos direcciones.' },
+      { topic: 'Agujeros', q: '¿Por qué se deja material suficiente entre un agujero y el borde de una chapa?', opts: ['Para reducir el riesgo de desgarro y permitir un montaje correcto', 'Para que la chapa pese más', 'Para ocultar la cabeza del tornillo', 'Para convertir el agujero en una soldadura'], ans: 0, explanation: 'Las distancias a borde son una condición geométrica y de fabricación de la unión.' },
+      { topic: 'Agujeros', q: '¿Para qué se realiza una matriz de agujeros en una placa?', opts: ['Para colocar varios tornillos con una separación definida', 'Para cambiar el color de la placa', 'Para medir el ángulo de la cubierta', 'Para crear una rosca en el hormigón'], ans: 0, explanation: 'La matriz organiza las posiciones de los tornillos en filas y columnas.' },
+      { topic: 'Tolerancias', q: '¿Qué ventaja da una holgura de montaje prevista en el detalle?', opts: ['Facilita presentar y encajar las piezas dentro de la tolerancia definida', 'Permite omitir la medición', 'Hace que las piezas no necesiten apoyo', 'Aumenta automáticamente la resistencia del acero'], ans: 0, explanation: 'La holgura facilita el montaje, pero debe respetar el detalle y la tolerancia especificados.' },
+      { topic: 'Soldadura', q: 'Antes de ejecutar un cordón de soldadura, las superficies deben estar:', opts: ['Preparadas y limpias según el procedimiento de soldadura', 'Cubiertas de pintura y grasa', 'Separadas sin control', 'Marcadas únicamente con rotulador'], ans: 0, explanation: 'La preparación de bordes y la limpieza forman parte del procedimiento de unión.' },
+      { topic: 'Soldadura', q: '¿Qué describe la garganta a de una soldadura de ángulo?', opts: ['La dimensión eficaz del cordón indicada en el detalle', 'La longitud total del pilar', 'El diámetro nominal de un perno', 'El espesor de la losa'], ans: 0, explanation: 'La garganta es una dimensión del cordón; no existe un único valor válido para todas las uniones.' },
+      { topic: 'Planos', q: '¿Qué característica tiene un alzado ortográfico de taller?', opts: ['Proyecta la pieza sin perspectiva y conserva sus dimensiones en el plano de proyección', 'Inclina las líneas para dar sensación de profundidad', 'Muestra solo una fotografía', 'Cambia las medidas según la distancia a cámara'], ans: 0, explanation: 'La proyección ortográfica es adecuada para representar y acotar geometría técnica.' },
+      { topic: 'Pieza libre', q: 'Al terminar una polilínea cerrada en la herramienta Pieza libre, ¿qué se debe definir para obtener una chapa 3D?', opts: ['El espesor y el plano de trabajo de la pieza', 'La velocidad de la cámara', 'El color del fondo', 'El número de plantas del edificio'], ans: 0, explanation: 'El contorno define la forma 2D y el espesor produce la pieza extruida.' },
+      { topic: 'Control dimensional', q: 'En este editor, ¿qué unidad debe usarse para ajustar una pieza con precisión de taller?', opts: ['Milímetros (mm)', 'Kilómetros (km)', 'Hectáreas (ha)', 'Grados Celsius (°C)'], ans: 0, explanation: 'Las cotas y desplazamientos de montaje se expresan en milímetros.' },
     ];
-
     this._initEvents();
     this.loadProgress();
   }
 
   _initEvents() {
-    if(!this.overlay) return;
-
-    this.closeBtn.addEventListener('click', () => this.hide());
-    
-    this.tabs.forEach(tab => {
-      tab.addEventListener('click', (e) => {
-        this.tabs.forEach(t => t.classList.remove('active'));
-        e.currentTarget.classList.add('active');
-        
-        const targetId = e.currentTarget.dataset.tab;
-        this.panes.forEach(p => {
-          if(p.id === targetId) p.classList.remove('hidden');
-          else p.classList.add('hidden');
-        });
-        
-        if(targetId === 'tut-quiz') {
-          this.loadQuiz();
-        }
-      });
-    });
+    if (!this.overlay) return;
+    this.closeBtn?.addEventListener('click', () => this.hide());
+    this.tabs.forEach(tab => tab.addEventListener('click', event => {
+      this.tabs.forEach(item => item.classList.remove('active'));
+      event.currentTarget.classList.add('active');
+      const targetId = event.currentTarget.dataset.tab;
+      this.panes.forEach(pane => pane.classList.toggle('hidden', pane.id !== targetId));
+      if (targetId === 'tut-quiz') this.loadQuiz();
+    }));
   }
 
-  show() {
-    this.overlay.classList.remove('hidden');
-  }
-
-  hide() {
-    this.overlay.classList.add('hidden');
-  }
+  show() { this.overlay?.classList.remove('hidden'); }
+  hide() { this.overlay?.classList.add('hidden'); }
 
   loadQuiz() {
-    const qLabel = document.getElementById('q-title');
-    const qText = document.getElementById('q-text');
-    const qOpts = document.getElementById('q-options');
-    const qFeed = document.getElementById('q-feedback');
-    if (!qLabel || !qText || !qOpts || !qFeed) return;
+    const label = document.getElementById('q-title');
+    const text = document.getElementById('q-text');
+    const options = document.getElementById('q-options');
+    const feedback = document.getElementById('q-feedback');
+    if (!label || !text || !options || !feedback) return;
 
     if (this.currentQ >= this.questions.length) {
-      const perfect = this.score === this.questions.length;
-      qLabel.innerText = perfect ? '¡Dominio completo!' : 'Test finalizado';
-      qText.innerText = `Resultado: ${this.score} de ${this.questions.length} respuestas correctas.`;
-      qOpts.innerHTML = '';
-      qFeed.style.color = perfect ? 'var(--success)' : 'var(--warning)';
-      qFeed.innerText = perfect
-        ? 'Has resuelto correctamente todo el banco ETSIE.'
-        : 'Puedes repetir el test para consolidar los temas pendientes. ';
-
-      const retryBtn = document.createElement('button');
-      retryBtn.className = 'q-btn-next';
-      retryBtn.innerText = 'Repetir test';
-      retryBtn.onclick = () => {
-        this.currentQ = 0;
-        this.score = 0;
-        this.saveProgress();
-        this.loadQuiz();
-      };
-      qFeed.appendChild(retryBtn);
+      label.textContent = this.score === this.questions.length ? '¡Dominio completo!' : 'Test finalizado';
+      text.textContent = `Resultado: ${this.score} de ${this.questions.length} respuestas correctas.`;
+      options.replaceChildren();
+      feedback.replaceChildren();
+      feedback.style.color = this.score === this.questions.length ? 'var(--success)' : 'var(--warning)';
+      feedback.append(this.score === this.questions.length ? 'Has completado el repaso de montaje.' : 'Puedes repetir el test para repasar las uniones.');
+      const retry = document.createElement('button');
+      retry.className = 'q-btn-next';
+      retry.textContent = 'Repetir test';
+      retry.addEventListener('click', () => { this.currentQ = 0; this.score = 0; this.saveProgress(); this.loadQuiz(); });
+      feedback.append(retry);
       return;
     }
 
-    qFeed.innerText = '';
-    const q = this.questions[this.currentQ];
-    const topicPrefix = q.topic ? `${q.topic} · ` : '';
-    qLabel.innerText = `${topicPrefix}Pregunta ${this.currentQ + 1} de ${this.questions.length}`;
-    qText.innerText = q.q;
-
-    qOpts.innerHTML = '';
-    q.opts.forEach((txt, i) => {
-      const btn = document.createElement('button');
-      btn.className = 'q-opt';
-      btn.innerText = txt;
-      btn.onclick = () => this.answerQuiz(i, btn);
-      qOpts.appendChild(btn);
-    });
+    const question = this.questions[this.currentQ];
+    feedback.replaceChildren();
+    feedback.style.color = '';
+    label.textContent = `${question.topic} · Pregunta ${this.currentQ + 1} de ${this.questions.length}`;
+    text.textContent = question.q;
+    const answerOrder = question.opts.map((_, index) => index);
+    for (let index = answerOrder.length - 1; index > 0; index--) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      [answerOrder[index], answerOrder[swapIndex]] = [answerOrder[swapIndex], answerOrder[index]];
+    }
+    options.replaceChildren(...answerOrder.map(index => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'q-opt';
+      button.dataset.answerIndex = String(index);
+      button.textContent = question.opts[index];
+      button.addEventListener('click', () => this.answerQuiz(index, button));
+      return button;
+    }));
   }
 
-  answerQuiz(idx, btn) {
-    const opts = document.querySelectorAll('.q-opt');
+  answerQuiz(index, button) {
     const question = this.questions[this.currentQ];
-    const qFeed = document.getElementById('q-feedback');
-    if (!question || !qFeed) return;
-
-    opts.forEach(o => o.style.pointerEvents = 'none');
-    const correctIdx = question.ans;
-    const explanation = question.explanation ? ` ${question.explanation}` : '';
-
-    if (idx === correctIdx) {
-      btn.classList.add('correct');
-      qFeed.style.color = 'var(--success)';
-      qFeed.innerText = `¡Correcto!${explanation}`;
-      this.score++;
-    } else {
-      btn.classList.add('wrong');
-      opts[correctIdx]?.classList.add('correct');
-      qFeed.style.color = 'var(--danger)';
-      qFeed.innerText = `Incorrecto.${explanation}`;
-    }
-
-    const nxtBtn = document.createElement('button');
-    nxtBtn.className = 'q-btn-next';
-    nxtBtn.innerText = 'Siguiente';
-    nxtBtn.onclick = () => {
-      this.currentQ++;
-      this.saveProgress();
-      this.loadQuiz();
-    };
-    qFeed.appendChild(nxtBtn);
+    const feedback = document.getElementById('q-feedback');
+    if (!question || !feedback) return;
+    const options = [...document.querySelectorAll('.q-opt')];
+    options.forEach(option => { option.disabled = true; });
+    const correct = index === question.ans;
+    options.find(option => Number(option.dataset.answerIndex) === question.ans)?.classList.add('correct');
+    if (correct) this.score += 1;
+    else button.classList.add('wrong');
+    feedback.replaceChildren();
+    feedback.style.color = correct ? 'var(--success)' : 'var(--danger)';
+    feedback.append(`${correct ? '¡Correcto!' : 'Incorrecto.'} ${question.explanation}`);
+    const next = document.createElement('button');
+    next.type = 'button';
+    next.className = 'q-btn-next';
+    next.textContent = 'Siguiente';
+    next.addEventListener('click', () => { this.currentQ += 1; this.saveProgress(); this.loadQuiz(); });
+    feedback.append(next);
+    this.updateBar();
   }
 
   saveProgress() {
-    localStorage.setItem('comet_upv_score', this.score);
-    localStorage.setItem('comet_upv_q', this.currentQ);
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify({ score: this.score, question: this.currentQ }));
     this.updateBar();
   }
 
   loadProgress() {
-    const savedScore = Number.parseInt(localStorage.getItem('comet_upv_score'), 10);
-    const savedQuestion = Number.parseInt(localStorage.getItem('comet_upv_q'), 10);
-
-    this.currentQ = Number.isInteger(savedQuestion) && savedQuestion >= 0
-      ? Math.min(savedQuestion, this.questions.length)
-      : 0;
-    this.score = Number.isInteger(savedScore) && savedScore >= 0
-      ? Math.min(savedScore, this.currentQ, this.questions.length)
-      : 0;
-
+    try {
+      const saved = JSON.parse(localStorage.getItem(PROGRESS_KEY) || '{}');
+      const question = Number(saved.question);
+      const score = Number(saved.score);
+      this.currentQ = Number.isInteger(question) ? Math.max(0, Math.min(question, this.questions.length)) : 0;
+      this.score = Number.isInteger(score) ? Math.max(0, Math.min(score, this.currentQ, this.questions.length)) : 0;
+    } catch (_) {
+      this.currentQ = 0;
+      this.score = 0;
+    }
     this.updateBar();
   }
 
   updateBar() {
-    if(!this.progFill) return;
-    const pct = (this.score / this.questions.length) * 100;
-    this.progFill.style.width = `${pct}%`;
-    this.scoreText.innerText = `${this.score} / ${this.questions.length} pts`;
+    if (!this.progFill || !this.scoreText) return;
+    this.progFill.style.width = `${(this.score / this.questions.length) * 100}%`;
+    this.scoreText.textContent = `${this.score} / ${this.questions.length} aciertos`;
   }
 }

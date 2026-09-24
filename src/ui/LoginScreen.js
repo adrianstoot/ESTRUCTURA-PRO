@@ -4,8 +4,9 @@ import { icon, brandLogo } from './icons.js';
 const SETTINGS_KEY = 'estructuras-pro:settings:v1';
 const DEFAULT_SETTINGS = Object.freeze({
   units: 'metric',
-  interfaceTheme: 'dark',
-  snapPrecision: '10',
+  interfaceTheme: 'light',
+  themePreferenceVersion: 2,
+  snapPrecision: '1',
   autosave: true,
   reducedMotion: false,
 });
@@ -27,7 +28,8 @@ export class LoginScreen {
     overlay.id = 'login-overlay';
     overlay.className = 'ep0-overlay';
     overlay.dataset.reducedMotion = String(this.settings.reducedMotion);
-    overlay.style.setProperty('--ep0-splash-image', `url("${import.meta.env.BASE_URL}estructuras-pro-splash.png")`);
+    const splashImage = new URL(`${import.meta.env.BASE_URL}login-hero-bg.png`, window.location.href).href;
+    overlay.style.setProperty('--ep0-splash-image', `url("${splashImage}")`);
     overlay.innerHTML = `
       <div class="ep0-background" aria-hidden="true"></div>
       <div class="ep0-window-controls" aria-label="Controles de ventana">
@@ -313,7 +315,8 @@ export class LoginScreen {
         const data = new FormData(event.currentTarget);
         this.settings = {
           units: String(data.get('units') || 'metric'),
-          interfaceTheme: String(data.get('interfaceTheme') || 'dark'),
+          interfaceTheme: String(data.get('interfaceTheme') || 'light'),
+          themePreferenceVersion: 2,
           snapPrecision: String(data.get('snapPrecision') || '10'),
           autosave: data.get('autosave') === 'on',
           reducedMotion: data.get('reducedMotion') === 'on',
@@ -349,8 +352,8 @@ export class LoginScreen {
     const checked = (value) => value ? 'checked' : '';
     return `<form class="ep0-dialog-form" id="ep0-settings-form">
       <div class="ep0-setting-row"><label for="ep0-units">Sistema de unidades</label><select id="ep0-units" name="units"><option value="metric" ${selected(this.settings.units, 'metric')}>Métrico · m, mm, kN</option></select></div>
-      <div class="ep0-setting-row"><label for="ep0-theme">Tema del editor</label><select id="ep0-theme" name="interfaceTheme"><option value="dark" ${selected(this.settings.interfaceTheme, 'dark')}>Oscuro técnico</option><option value="system" ${selected(this.settings.interfaceTheme, 'system')}>Configuración del sistema</option></select></div>
-      <div class="ep0-setting-row"><label for="ep0-snap">Precisión de captura</label><select id="ep0-snap" name="snapPrecision"><option value="5" ${selected(this.settings.snapPrecision, '5')}>5 mm · Alta precisión</option><option value="10" ${selected(this.settings.snapPrecision, '10')}>10 mm · Recomendada</option><option value="25" ${selected(this.settings.snapPrecision, '25')}>25 mm · Croquis rápido</option></select></div>
+      <div class="ep0-setting-row"><label for="ep0-theme">Tema del editor</label><select id="ep0-theme" name="interfaceTheme"><option value="light" ${selected(this.settings.interfaceTheme, 'light')}>Día · blanco crema</option><option value="dark" ${selected(this.settings.interfaceTheme, 'dark')}>Oscuro técnico</option><option value="system" ${selected(this.settings.interfaceTheme, 'system')}>Configuración del sistema</option></select></div>
+      <div class="ep0-setting-row"><label for="ep0-snap">Precisión de captura</label><select id="ep0-snap" name="snapPrecision"><option value="1" ${selected(this.settings.snapPrecision, '1')}>1 mm · Alta precisión</option><option value="5" ${selected(this.settings.snapPrecision, '5')}>5 mm · Detalle fino</option><option value="10" ${selected(this.settings.snapPrecision, '10')}>10 mm · Montaje</option><option value="25" ${selected(this.settings.snapPrecision, '25')}>25 mm · Croquis rápido</option></select></div>
       <label class="ep0-check-row"><input type="checkbox" name="autosave" ${checked(this.settings.autosave)}><span>Activar guardado automático</span></label>
       <label class="ep0-check-row"><input type="checkbox" name="reducedMotion" ${checked(this.settings.reducedMotion)}><span>Reducir animaciones</span></label>
       <div class="ep0-dialog-actions ep0-dialog-actions-split"><button type="button" class="ep0-btn-quiet" id="ep0-reset-settings">Restablecer</button><div><button type="button" class="ep0-btn-secondary" data-dialog-close>Cancelar</button><button type="submit" class="ep0-btn-primary">Guardar ajustes</button></div></div>
@@ -383,7 +386,15 @@ export class LoginScreen {
   _readSettings() {
     try {
       const value = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
-      return { ...DEFAULT_SETTINGS, ...(value && typeof value === 'object' ? value : {}), units: 'metric' };
+      const settings = { ...DEFAULT_SETTINGS, ...(value && typeof value === 'object' ? value : {}), units: 'metric' };
+      // Existing installs inherited dark as the old default; migrate those once to the new day theme.
+      if (Number(value?.themePreferenceVersion || 0) < 2) {
+        settings.interfaceTheme = 'light';
+        settings.themePreferenceVersion = 2;
+      }
+      // 10 mm was the old factory default; migrate it to the new 1 mm workshop default.
+      if (settings.snapPrecision === '10') settings.snapPrecision = '1';
+      return settings;
     } catch (_) {
       return { ...DEFAULT_SETTINGS };
     }

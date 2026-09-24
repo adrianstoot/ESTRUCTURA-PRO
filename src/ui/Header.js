@@ -18,28 +18,13 @@ export class Header {
   _render() {
     this.el.innerHTML = `
       <div class="header-brand">
-        <div class="header-logo">${brandLogo(30)}</div>
-        <div>
-          <div class="header-title">ESTRUCTURAS <span>PRO</span></div>
-          <div class="header-subtitle">STEEL DESIGN · CÓDIGO ESTRUCTURAL</div>
-        </div>
+        <div class="header-logo">${brandLogo(24)}</div>
       </div>
 
-      <div class="header-project-area">
-        <span class="header-project-label">ESTRUCTURAS PRO —</span>
-        <input type="text" id="project-name-input" value="Sin título" placeholder="Nombre del proyecto…" spellcheck="false">
-        <span class="header-view-context">— VISTA 3D: GENERAL</span>
-      </div>
-
-      <div class="header-actions">
-        <button class="header-btn" id="btn-new" title="Nuevo proyecto">
-          ${icon('filePlus', 14)}<span>Nuevo</span>
-        </button>
+      <div class="header-quick-actions" aria-label="Acciones del proyecto">
+        <button class="header-btn header-btn-icon" id="btn-new" title="Nuevo proyecto" aria-label="Nuevo proyecto">${icon('filePlus', 14)}</button>
         <div class="header-menu-wrap">
-          <button class="header-btn" id="btn-load" title="Abrir proyecto">
-            ${icon('folder', 14)}<span>Abrir</span>
-            ${icon('chevDown', 12)}
-          </button>
+          <button class="header-btn header-btn-icon" id="btn-load" title="Abrir proyecto" aria-label="Abrir proyecto">${icon('folder', 14)}</button>
           <div class="header-menu hidden" id="header-load-menu">
             <div class="header-menu-item" data-action="load-file">${icon('upload', 12)}<span>Desde archivo…</span></div>
             <div class="header-menu-sep"></div>
@@ -47,33 +32,31 @@ export class Header {
             <div id="recents-dropdown"></div>
           </div>
         </div>
-        <button class="header-btn primary" id="btn-save" title="Guardar (Ctrl+S)">
-          ${icon('save', 14)}<span>Guardar</span>
-        </button>
-        <button class="header-btn" id="btn-export" title="Exportar proyecto">
-          ${icon('download', 14)}<span>Exportar</span>
+        <button class="header-btn header-btn-icon primary" id="btn-save" title="Guardar (Ctrl+S)" aria-label="Guardar">${icon('save', 14)}</button>
+        <button class="header-btn header-btn-icon" id="btn-export" title="Exportar proyecto" aria-label="Exportar">${icon('download', 14)}</button>
+      </div>
+
+      <div class="header-project-area">
+        <span class="header-project-label">ESTRUCTURAS PRO 2026 ·</span>
+        <input type="text" id="project-name-input" value="Sin título" placeholder="Nombre del proyecto…" spellcheck="false">
+        <span class="header-view-context">· VISTA 3D: GENERAL</span>
+      </div>
+
+      <div class="header-actions">
+        <div class="header-sep"></div>
+        <button class="header-btn header-btn-icon header-btn-accent" id="btn-tut" title="Aula de montaje ETSIE" aria-label="Aula de montaje ETSIE">
+          ${icon('graduation', 14)}
         </button>
 
         <div class="header-sep"></div>
-        <button class="header-btn header-btn-accent" id="btn-tut" title="Módulo didáctico ETSIE">
-          ${icon('graduation', 14)}<span>Tutoría</span>
-        </button>
 
-        <div class="header-sep"></div>
-
-        <button class="header-btn header-btn-icon" id="btn-cmd" title="Paleta de comandos (Ctrl+K)">
+        <button class="header-btn header-btn-icon" id="btn-cmd" title="Paleta de comandos (Ctrl+K)" aria-label="Paleta de comandos">
           ${icon('terminal', 15)}
         </button>
-        <button class="header-btn header-btn-icon" id="btn-theme" title="Alternar tema claro / oscuro">
+        <button class="header-btn header-btn-icon" id="btn-theme" title="Alternar tema claro / oscuro" aria-label="Alternar tema claro / oscuro">
           ${icon('theme', 15)}
         </button>
 
-        <div class="header-sep"></div>
-
-        <div class="header-user-badge" id="user-badge">
-          <div class="header-user-dot"></div>
-          <span id="header-user-name">—</span>
-        </div>
         <div class="header-window-controls" aria-label="Controles de ventana">
           <button type="button" id="editor-window-min" title="Minimizar interfaz" aria-label="Minimizar">—</button>
           <button type="button" id="editor-window-max" title="Maximizar" aria-label="Maximizar">□</button>

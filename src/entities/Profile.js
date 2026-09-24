@@ -18,7 +18,7 @@ import { getProfileData, getEngineeringData, SERIES_LIST } from './ProfileCatalo
  *   orientation='beam'   → sin rotación, L en Z (horizontal)
  */
 export class Profile extends BIMElement {
-  constructor(series = 'IPE', size = '200', length = 3.0, orientation = 'beam', options = {}) {
+  constructor(series = 'IPE', size = '200', length = 1.0, orientation = 'beam', options = {}) {
     super('profile', {
       series, size, length, orientation,
       sectionRotation: Number(options.sectionRotation ?? 0),

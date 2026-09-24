@@ -36,8 +36,6 @@ export class PropertiesPanel {
       </div>
       <nav class="inspector-tabs" aria-label="Secciones del inspector">
         <button type="button" data-inspector-tab="geometry" class="active">Geometría</button>
-        <button type="button" data-inspector-tab="analysis">ELU / ELS</button>
-        <button type="button" data-inspector-tab="connection">Unión</button>
       </nav>
       <div id="props-content" class="panel-content"></div>`;
     if (this.sectionDrawer) {
@@ -59,7 +57,7 @@ export class PropertiesPanel {
   }
 
   setActiveTab(tab) {
-    this.activeTab = ['geometry','analysis','connection'].includes(tab) ? tab : 'geometry';
+    this.activeTab = 'geometry';
     this.panel.querySelectorAll('[data-inspector-tab]').forEach(button => button.classList.toggle('active', button.dataset.inspectorTab === this.activeTab));
     this.panel.querySelectorAll('[data-inspector-pane]').forEach(pane => pane.classList.toggle('active', pane.dataset.inspectorPane === this.activeTab));
   }
@@ -73,24 +71,19 @@ export class PropertiesPanel {
     const mini = this.panel.querySelector('#mini-props');
     if (!bimElement) {
       mini.innerHTML = '';
-      content.innerHTML = `<div class="no-selection"><i class="fa-solid fa-arrow-pointer no-sel-icon"></i><b>Seleccione un elemento</b><span class="no-sel-hint">El inspector mostrará geometría, comprobaciones ELU/ELS y componentes de la unión.</span></div>`;
+      content.innerHTML = `<div class="no-selection"><i class="fa-solid fa-arrow-pointer no-sel-icon"></i><b>Seleccione un elemento</b><span class="no-sel-hint">El inspector mostrará dimensiones, posición, material y acabado.</span></div>`;
       return;
     }
 
-    const result = bimElement.analysisResults;
-    const status = result?.status || 'NOT_CHECKED';
     const clashes = this.getClashes?.(bimElement) || [];
-    mini.innerHTML = `<span class="mini-prop-chip"><b>${esc(bimElement.type.toUpperCase())}</b></span><span class="mini-prop-chip">${esc(bimElement.steelGrade)}</span><span class="mini-prop-chip status-${status}">${STATUS_LABEL[status]}</span>`;
+    mini.innerHTML = `<span class="mini-prop-chip"><b>${esc(bimElement.type.toUpperCase())}</b></span><span class="mini-prop-chip">${esc(bimElement.steelGrade)}</span>`;
 
     content.innerHTML = `
       <div class="inspector-identity">
         <div><span>${esc(bimElement.params?.role || bimElement.type)}</span><h2>${esc(bimElement.designation)}</h2><small>${esc(bimElement.id)}</small></div>
-        <div class="utilization-orb ${status}"><b>${Number.isFinite(Number(result?.ratio)) ? `${Math.round(result.ratio*100)}%` : '—'}</b><span>η máx.</span></div>
       </div>
       ${clashes.length ? `<div class="clash-banner"><i class="fa-solid fa-triangle-exclamation"></i><div><b>${clashes.length} posible${clashes.length === 1 ? '' : 's'} solape${clashes.length === 1 ? '' : 's'}</b><span>${clashes.slice(0,3).map(item => esc(item.other?.designation || item.designation || 'Elemento')).join(' · ')}</span></div></div>` : ''}
-      <section class="inspector-pane" data-inspector-pane="geometry">${this._geometryHtml(bimElement)}</section>
-      <section class="inspector-pane" data-inspector-pane="analysis">${this._analysisHtml(bimElement)}</section>
-      <section class="inspector-pane" data-inspector-pane="connection">${this._connectionHtml(bimElement)}</section>`;
+      <section class="inspector-pane active" data-inspector-pane="geometry">${this._geometryHtml(bimElement)}</section>`;
     this._wireEvents(bimElement);
     this.setActiveTab(this.activeTab);
   }
@@ -112,21 +105,21 @@ export class PropertiesPanel {
       html += this._acc('Perfil y eje local', `
         ${this._field('Serie', `<select id="prop-series">${SERIES_LIST.map(item => `<option ${item === element.params.series ? 'selected' : ''}>${item}</option>`).join('')}</select>`)}
         ${this._field('Tamaño', `<select id="prop-size">${sizes.map(item => `<option ${String(item) === String(element.params.size) ? 'selected' : ''}>${item}</option>`).join('')}</select>`)}
-        ${this._field('Longitud', `<span class="input-unit"><input id="prop-length" type="number" min="0.1" step="0.1" value="${element.params.length}"><em>m</em></span>`)}
+        ${this._field('Longitud', `<span class="input-unit"><input id="prop-length" type="number" min="1" step="1" value="${Math.round(element.params.length * 1000)}"><em>mm</em></span>`)}
         ${this._field('Dirección base', `<select id="prop-orientation"><option value="beam" ${element.params.orientation === 'beam' ? 'selected' : ''}>Viga / libre</option><option value="column" ${element.params.orientation === 'column' ? 'selected' : ''}>Pilar vertical</option></select>`)}
         ${this._field('Giro θ', `<select id="prop-roll">${[0,90,180,270].map(v => `<option value="${v}" ${Number(element.params.sectionRotation || 0) === v ? 'selected' : ''}>${v}°</option>`).join('')}</select>`)}
         ${this._field('Inserción', `<select id="prop-insertion">${['center','top','bottom','left','right','top-left','top-right','bottom-left','bottom-right'].map(v => `<option value="${v}" ${element.params.insertionPoint === v ? 'selected' : ''}>${({center:'Centro',top:'Superior',bottom:'Inferior',left:'Izquierda',right:'Derecha','top-left':'Sup. izquierda','top-right':'Sup. derecha','bottom-left':'Inf. izquierda','bottom-right':'Inf. derecha'})[v]}</option>`).join('')}</select>`)}
         <button id="btn-apply-profile" class="prop-apply-btn">Aplicar perfil</button>`, true);
       if (eng) html += this._acc('Propiedades de sección', `
-        ${this._value('A', `${fmt(element.area)} cm²`)}${this._value('Iy / Iz', `${fmt(eng.Iy,1)} / ${fmt(eng.Iz,1)} cm⁴`)}
-        ${this._value('Wel,y / Wel,z', `${fmt(eng.Wely,1)} / ${fmt(eng.Welz,1)} cm³`)}${this._value('Wpl,y / Wpl,z', `${fmt(eng.Wply,1)} / ${fmt(eng.Wplz,1)} cm³`)}
-        ${this._value('iy / iz', `${fmt(eng.iy)} / ${fmt(eng.iz)} cm`)}${this._value('It / Iw', `${fmt(eng.It,2)} cm⁴ / ${fmt(eng.Iw,1)} cm⁶`)}
+        ${this._value('A', `${fmt(element.area * 100)} mm²`)}${this._value('Iy / Iz', `${fmt(eng.Iy * 10000,1)} / ${fmt(eng.Iz * 10000,1)} mm⁴`)}
+        ${this._value('Wel,y / Wel,z', `${fmt(eng.Wely * 1000,1)} / ${fmt(eng.Welz * 1000,1)} mm³`)}${this._value('Wpl,y / Wpl,z', `${fmt(eng.Wply * 1000,1)} / ${fmt(eng.Wplz * 1000,1)} mm³`)}
+        ${this._value('iy / iz', `${fmt(eng.iy * 10)} / ${fmt(eng.iz * 10)} mm`)}${this._value('It / Iw', `${fmt(eng.It * 10000,2)} mm⁴ / ${fmt(eng.Iw * 1e6,1)} mm⁶`)}
         ${this._value('Clase orientativa', `Clase ${eng.sectionClass || '—'} · flexión pura`)}${this._value('Masa', `${fmt(element.mass)} kg`)}`, false);
     } else if (element.type === 'plate') {
       html += this._acc('Dimensiones de placa', `
-        ${this._field('Ancho', `<span class="input-unit"><input id="prop-width" type="number" step="0.01" value="${element.params.width}"><em>m</em></span>`)}
-        ${this._field('Alto', `<span class="input-unit"><input id="prop-height" type="number" step="0.01" value="${element.params.height}"><em>m</em></span>`)}
-        ${this._field('Espesor', `<span class="input-unit"><input id="prop-thickness" type="number" step="0.001" value="${element.params.thickness}"><em>m</em></span>`)}
+        ${this._field('Ancho', `<span class="input-unit"><input id="prop-width" type="number" min="0.1" step="0.1" value="${(element.params.width * 1000).toFixed(1)}"><em>mm</em></span>`)}
+        ${this._field('Alto', `<span class="input-unit"><input id="prop-height" type="number" min="0.1" step="0.1" value="${(element.params.height * 1000).toFixed(1)}"><em>mm</em></span>`)}
+        ${this._field('Espesor', `<span class="input-unit"><input id="prop-thickness" type="number" min="0.1" step="0.1" value="${(element.params.thickness * 1000).toFixed(1)}"><em>mm</em></span>`)}
         <button id="btn-apply-plate" class="prop-apply-btn">Aplicar placa</button>`, true);
     } else if (element.type === 'fastener') {
       html += this._acc('Tornillo / perno', `
@@ -142,7 +135,7 @@ export class PropertiesPanel {
     const pos = element.getPosition();
     const rot = element.getRotation();
     html += this._acc('Posición y rotación', `
-      <div class="coordinate-grid">${['x','y','z'].map((axis, i) => `<label><span>${axis.toUpperCase()}</span><input id="prop-p${axis}" type="number" step="0.01" value="${[pos.x,pos.y,pos.z][i].toFixed(3)}"></label>`).join('')}</div>
+      <div class="coordinate-grid" title="Posición en milímetros">${['x','y','z'].map((axis, i) => `<label><span>${axis.toUpperCase()}</span><input id="prop-p${axis}" type="number" step="0.1" value="${([pos.x,pos.y,pos.z][i] * 1000).toFixed(1)}"></label>`).join('')}</div>
       <div class="coordinate-grid">${['x','y','z'].map((axis, i) => `<label><span>R${axis.toUpperCase()}</span><input id="prop-r${axis}" type="number" step="1" value="${(rot[axis]*180/Math.PI).toFixed(1)}"></label>`).join('')}</div>
       <button id="btn-apply-transform" class="prop-apply-btn">Aplicar transformación</button>`, false);
     html += this._acc('Acabado y color', `<div class="color-palette">${COLORS.map(item => `<button type="button" class="color-swatch${item === color ? ' active' : ''}" data-color="${item}" style="--swatch:${item}" title="${item}"></button>`).join('')}</div><div class="color-picker-row"><input id="color-picker-custom" type="color" value="${color}"><input id="color-hex-input" value="${color}"></div>`, false);
@@ -160,8 +153,8 @@ export class PropertiesPanel {
         ${this._field('V<sub>Ed</sub>', `<span class="input-unit"><input id="calc-ved" type="number" step="1" value="${input.VEd ?? 0}"><em>kN</em></span>`)}
         ${this._field('M<sub>y,Ed</sub>', `<span class="input-unit"><input id="calc-myed" type="number" step="1" value="${input.MyEd ?? input.MEd ?? 0}"><em>kNm</em></span>`)}
         ${this._field('M<sub>z,Ed</sub>', `<span class="input-unit"><input id="calc-mzed" type="number" step="1" value="${input.MzEd ?? 0}"><em>kNm</em></span>`)}
-        ${this._field('L<sub>cr,y</sub>', `<span class="input-unit"><input id="calc-lcry" type="number" step="0.1" value="${input.LcrY ?? element.params.length}"><em>m</em></span>`)}
-        ${this._field('L<sub>cr,z</sub>', `<span class="input-unit"><input id="calc-lcrz" type="number" step="0.1" value="${input.LcrZ ?? element.params.length}"><em>m</em></span>`)}
+        ${this._field('L<sub>cr,y</sub>', `<span class="input-unit"><input id="calc-lcry" type="number" step="1" value="${Math.round((input.LcrY ?? element.params.length) * 1000)}"><em>mm</em></span>`)}
+        ${this._field('L<sub>cr,z</sub>', `<span class="input-unit"><input id="calc-lcrz" type="number" step="1" value="${Math.round((input.LcrZ ?? element.params.length) * 1000)}"><em>mm</em></span>`)}
         ${this._field('Límite flecha', `<select id="calc-deflection-limit">${[300,250,400,500].map(value => `<option value="${value}" ${Number(input.deflectionLimit ?? 300) === value ? 'selected' : ''}>L/${value}</option>`).join('')}</select>`)}
         ${this._field('Carga ELS q', `<span class="input-unit"><input id="calc-service-load" type="number" min="0" step="0.1" value="${input.serviceLoad ?? ''}" placeholder="opcional"><em>kN/m</em></span>`)}
         ${this._field('Flecha δEd', `<span class="input-unit"><input id="calc-delta-ed" type="number" min="0" step="0.1" value="${input.deltaEdMm ?? ''}" placeholder="alternativa"><em>mm</em></span>`)}
@@ -209,11 +202,11 @@ export class PropertiesPanel {
     });
     this.panel.querySelector('#btn-apply-profile')?.addEventListener('click', () => {
       element.steelGrade = this.panel.querySelector('#prop-steel-grade')?.value || element.steelGrade;
-      element.update({ ...element.params, series: this._valueOf('prop-series'), size: this._valueOf('prop-size'), length: this._numberOf('prop-length', element.params.length), orientation: this._valueOf('prop-orientation'), sectionRotation: this._numberOf('prop-roll', 0), insertionPoint: this._valueOf('prop-insertion') });
+      element.update({ ...element.params, series: this._valueOf('prop-series'), size: this._valueOf('prop-size'), length: this._numberOf('prop-length', element.params.length * 1000) / 1000, orientation: this._valueOf('prop-orientation'), sectionRotation: this._numberOf('prop-roll', 0), insertionPoint: this._valueOf('prop-insertion') });
       this.onPropertyChange?.(element, { rebuild: true }); this.update(element);
     });
     this.panel.querySelector('#btn-apply-plate')?.addEventListener('click', () => {
-      element.update({ ...element.params, width: this._numberOf('prop-width', element.params.width), height: this._numberOf('prop-height', element.params.height), thickness: this._numberOf('prop-thickness', element.params.thickness) });
+      element.update({ ...element.params, width: this._numberOf('prop-width', element.params.width * 1000) / 1000, height: this._numberOf('prop-height', element.params.height * 1000) / 1000, thickness: this._numberOf('prop-thickness', element.params.thickness * 1000) / 1000 });
       this.onPropertyChange?.(element, { rebuild: true }); this.update(element);
     });
     this.panel.querySelector('#btn-apply-fastener')?.addEventListener('click', () => {
@@ -226,7 +219,7 @@ export class PropertiesPanel {
       this.onPropertyChange?.(element, { rebuild: element.type === 'profile' }); this.update(element);
     });
     this.panel.querySelector('#btn-apply-transform')?.addEventListener('click', () => {
-      element.setPosition(this._numberOf('prop-px',0), this._numberOf('prop-py',0), this._numberOf('prop-pz',0));
+      element.setPosition(this._numberOf('prop-px',0) / 1000, this._numberOf('prop-py',0) / 1000, this._numberOf('prop-pz',0) / 1000);
       element.setRotation(this._numberOf('prop-rx',0), this._numberOf('prop-ry',0), this._numberOf('prop-rz',0));
       element.mesh.updateMatrixWorld(true); this.onPropertyChange?.(element); this.update(element);
     });
@@ -239,7 +232,7 @@ export class PropertiesPanel {
     this.panel.querySelector('#btn-explode-assembly')?.addEventListener('click', () => this.onExplode?.(element));
     this.panel.querySelector('#btn-run-member-check')?.addEventListener('click', () => this.onCalculate?.(element, 'member', {
       NEd: this._numberOf('calc-ned',0), VEd: this._numberOf('calc-ved',0), MyEd: this._numberOf('calc-myed',0), MzEd: this._numberOf('calc-mzed',0),
-      LcrY: this._numberOf('calc-lcry',element.params.length), LcrZ: this._numberOf('calc-lcrz',element.params.length), deflectionLimit: this._numberOf('calc-deflection-limit',300),
+      LcrY: this._numberOf('calc-lcry',element.params.length * 1000) / 1000, LcrZ: this._numberOf('calc-lcrz',element.params.length * 1000) / 1000, deflectionLimit: this._numberOf('calc-deflection-limit',300),
       serviceLoad: this._optionalNumberOf('calc-service-load'), deltaEdMm: this._optionalNumberOf('calc-delta-ed'), standard: this._valueOf('prop-standard') || 'CODIGO',
     }));
     this.panel.querySelector('#btn-run-bolt-check')?.addEventListener('click', () => this.onCalculate?.(element, 'bolt', {
@@ -253,7 +246,7 @@ export class PropertiesPanel {
   updateCoords(element) {
     if (!element) return;
     const p = element.getPosition();
-    ['x','y','z'].forEach((axis,index) => { const input = this.panel.querySelector(`#prop-p${axis}`); if (input) input.value = [p.x,p.y,p.z][index].toFixed(3); });
+    ['x','y','z'].forEach((axis,index) => { const input = this.panel.querySelector(`#prop-p${axis}`); if (input) input.value = ([p.x,p.y,p.z][index] * 1000).toFixed(1); });
   }
 
   _valueOf(id) { return this.panel.querySelector(`#${id}`)?.value; }

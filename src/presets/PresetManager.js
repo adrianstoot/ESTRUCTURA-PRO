@@ -94,9 +94,10 @@ const SCHEMAS = {
 const number = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 export class PresetManager {
-  constructor({ sceneManager, onCommit, onSelect, toast, getSelected } = {}) {
+  constructor({ sceneManager, onCommit, onSelect, onPlaceFastener, toast, getSelected } = {}) {
     this.sceneManager = sceneManager;
     this.onCommit = onCommit;
+    this.onPlaceFastener = onPlaceFastener;
     this.onSelect = onSelect;
     this.toast = toast || (() => {});
     this.getSelected = getSelected || (() => null);
@@ -690,7 +691,8 @@ export class PresetManager {
 
   openBoltMatrix(plate = this.getSelected()) {
     if (!plate || plate.type !== 'plate') {
-      this.toast('Seleccione primero una placa para crear la matriz de tornillos.');
+      if (this.onPlaceFastener) this.onPlaceFastener('bolt', document.getElementById('global-metric-select')?.value || 'M16');
+      else this.toast('No hay placa seleccionada. Selecciona una placa o activa la colocación libre de tornillos.');
       return;
     }
     const overlay = document.createElement('div');
@@ -705,12 +707,17 @@ export class PresetManager {
         <label>Métrica<select name="metric"><option>M16</option><option selected>M20</option><option>M24</option><option>M30</option></select></label>
         <label>Clase<select name="boltClass"><option selected>8.8</option><option>10.9</option></select></label>
       </div>
-      <p class="dialog-note">Se comprobarán cortante, aplastamiento y tracción desde la pestaña ELU/ELS del inspector.</p>
-      <footer><button type="button" class="btn-secondary" data-close>Cancelar</button><button type="button" class="btn-primary" data-create>Crear matriz</button></footer>
+      <p class="dialog-note">Sin placa seleccionada, esta herramienta permite colocar un tornillo individual directamente en el editor.</p>
+      <footer><button type="button" class="btn-secondary" data-close>Cancelar</button><button type="button" class="btn-secondary" data-place-single>Colocar un tornillo</button><button type="button" class="btn-primary" data-create>Crear matriz</button></footer>
     </section>`;
     document.body.appendChild(overlay);
     const close = () => overlay.remove();
     overlay.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', close));
+    overlay.querySelector('[data-place-single]').addEventListener('click', () => {
+      const metric = overlay.querySelector('[name="metric"]').value;
+      close();
+      this.onPlaceFastener?.('bolt', metric);
+    });
     overlay.querySelector('[data-create]').addEventListener('click', () => {
       const read = name => overlay.querySelector(`[name="${name}"]`).value;
       this.generateBoltMatrix(plate, {

@@ -127,7 +127,7 @@ export class Weld extends BIMElement {
 
   _computeProperties() {
     const distance = this.pointA.distanceTo(this.pointB);
-    this.designation = `Soldadura L=${(distance * 100).toFixed(1)}cm`;
+    this.designation = `Soldadura L=${(distance * 1000).toFixed(0)} mm`;
     const radius = this.params.radius;
     this.area = Math.PI * radius * radius * 10000;
     this.mass = this.area / 10000 * distance * 7850;

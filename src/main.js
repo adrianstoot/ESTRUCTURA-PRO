@@ -1,6 +1,7 @@
 import './ui/layout.css';
 import './ui/geometric-system.css';
 import './ui/editor-pro.css';
+import * as THREE from 'three';
 import { LoginScreen } from './ui/LoginScreen.js';
 import { SceneManager } from './core/SceneManager.js';
 import { NavigationCube } from './core/NavigationCube.js';
@@ -41,13 +42,14 @@ let customPartEditor, loadManager, renderStudio;
 let selectTool, measureTool, weldTool;
 let navCube = null;
 let activeTool = 'select';
-let darkTheme = true;
+let pendingFastenerPlacement = null;
+let darkTheme = false;
 let visualMode = 'clay';
 let gizmoSpace = 'world';
 let _undoStack = [];
 let _undoPointer = -1;
 let _currentProjectName = 'Sin título';
-let _appSettings = { units: 'metric', interfaceTheme: 'dark', snapPrecision: '10', autosave: true, reducedMotion: false };
+let _appSettings = { units: 'metric', interfaceTheme: 'light', themePreferenceVersion: 2, snapPrecision: '1', autosave: true, reducedMotion: false };
 const RECENTS_KEY = 'estructuras-pro:recent';
 const VIEW_SLOTS_KEY = 'estructuras-pro:views';
 
@@ -68,7 +70,14 @@ function initApp(launchContext = {}) {
   const canvas = document.getElementById('canvas-container');
 
   sceneManager = new SceneManager(canvas);
+  document.addEventListener('camera-view-changed', updateStatusBar);
   gridManager = new GridManager(sceneManager.scene, 16);
+  sceneManager.gridManager = gridManager;
+  gridManager.updateForCamera(
+    sceneManager.camera,
+    sceneManager.renderer.domElement.clientHeight,
+    sceneManager.orbitControls.target,
+  );
   snapManager = new SnapManager(sceneManager, gridManager);
   gizmoManager = new GizmoManager(sceneManager);
 
@@ -88,6 +97,7 @@ function initApp(launchContext = {}) {
     toast: showToast,
     onCreate: (plate) => {
       selectAndShow(plate);
+      sceneManager.focusOnObject(plate, { animate: true, padding: 1.45 });
       pushUndo();
       refreshWorkspace();
     },
@@ -128,6 +138,7 @@ function initApp(launchContext = {}) {
 
   proController = new ProWorkspaceController({
     sceneManager, propsPanel, sidebar, ribbon,
+    beginFastenerPlacement: (subtype, metric) => createFastener(subtype, metric, 'bolt-matrix'),
     getSelected: () => selectTool.selected,
     selectObject: object => selectAndShow(object),
     pushUndo, toast: showToast, refresh: refreshWorkspace,
@@ -169,7 +180,7 @@ function initApp(launchContext = {}) {
     _appSettings = { ..._appSettings, ...launchContext.settings };
     document.documentElement.dataset.units = _appSettings.units || 'metric';
     document.documentElement.classList.toggle('reduced-motion', !!_appSettings.reducedMotion);
-    snapManager.gridSnap = Math.max(.001, Number(_appSettings.snapPrecision || 10) / 1000);
+    snapManager.gridSnap = Math.max(.001, Number(_appSettings.snapPrecision || 1) / 1000);
     const useDark = _appSettings.interfaceTheme === 'system'
       ? window.matchMedia('(prefers-color-scheme: dark)').matches
       : _appSettings.interfaceTheme !== 'light';
@@ -209,10 +220,11 @@ function selectAndShow(bimObj) {
   updateStatusBar();
 }
 
-function createProfile(series, size, length, orientation) {
+function createProfile(series, size, length = 1.0, orientation = 'beam') {
   const p = new Profile(series, size, length, orientation);
   sceneManager.addObject(p);
   selectAndShow(p);
+  sceneManager.focusOnObject(p, { animate: true, padding: 1.45 });
   pushUndo();
 }
 
@@ -221,16 +233,63 @@ function createPlate(subtype, w = 0.3, h = 0.3, t = 0.02, points = null) {
   if (points) p.params.points = points;
   sceneManager.addObject(p);
   selectAndShow(p);
+  sceneManager.focusOnObject(p, { animate: true, padding: 1.45 });
   pushUndo();
 }
 
-function createFastener(subtype, metric = 'M16') {
-  const metric_ = document.getElementById('global-metric-select')?.value || metric;
-  const f = new Fastener(subtype, metric_);
-  sceneManager.addObject(f);
-  selectAndShow(f);
-  // Auto-foco inmediato (Zoom in) para localizar piezas pequeñas
-  setTimeout(() => sceneManager.focusOnObject(f), 50); 
+function createFastener(subtype, metric = 'M16', sourceAction = 'add-bolt') {
+  const metric_ = sourceAction === 'bolt-matrix'
+    ? metric
+    : (document.getElementById('global-metric-select')?.value || metric);
+  pendingFastenerPlacement = { subtype, metric: metric_, sourceAction };
+  setTool('place-fastener', sourceAction);
+  sceneManager.renderer.domElement.style.cursor = 'crosshair';
+  showToast(`Colocar ${subtype === 'bolt' ? 'tornillo' : subtype} ${metric_}: clic en el editor · Esc para cancelar`, 4500);
+}
+
+function placePendingFastener(event) {
+  if (!pendingFastenerPlacement) return;
+  const pending = pendingFastenerPlacement;
+  snapManager.update(event);
+  const snapInfo = snapManager.getSnapInfo();
+  const snapPoint = snapManager.getSnapPoint();
+  const surface = sceneManager.getSurfaceHitAtMouse(event);
+  const fallbackPoint = sceneManager.getPlacementPlanePointAtMouse(event);
+  const point = snapPoint?.clone() || surface?.point?.clone() || fallbackPoint;
+  if (!point) {
+    showToast('No se pudo determinar el punto de colocación. Mueve el cursor sobre el editor e inténtalo de nuevo.');
+    return;
+  }
+  if (!snapPoint && !surface && snapManager.enabled) {
+    const step = Math.max(0.001, snapManager.gridSnap || 0.001);
+    point.set(
+      Math.round(point.x / step) * step,
+      Math.round(point.y / step) * step,
+      Math.round(point.z / step) * step,
+    );
+  }
+
+  const fastener = new Fastener(pending.subtype, pending.metric);
+  sceneManager.addObject(fastener);
+  const normal = snapInfo?.normal || (snapInfo?.objectId && surface?.objectId === snapInfo.objectId ? surface.normal : null) || surface?.normal || new THREE.Vector3(0, 1, 0);
+  const placementNormal = normal.clone().normalize();
+  const onSurface = Boolean(snapInfo?.objectId || surface?.objectId);
+  const origin = point.clone();
+  if (pending.subtype === 'bolt' && onSurface) {
+    // Treat the clicked point as the underside of the bolt head. The shank
+    // runs into the host while the head remains on the outside of the face.
+    origin.addScaledVector(placementNormal, -Number(fastener.params.shankLength || 60) / 1000);
+  } else if (pending.subtype === 'bolt' && snapInfo?.type === 'grid') {
+    // A bolt placed freely on the work grid stays visible above the plane.
+    placementNormal.set(0, 1, 0);
+  }
+  fastener.setPosition(origin.x, origin.y, origin.z);
+  if (placementNormal.lengthSq()) fastener.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), placementNormal);
+  fastener.mesh.updateMatrixWorld(true);
+  selectAndShow(fastener);
+  pendingFastenerPlacement = null;
+  setTool('select');
+  sceneManager.focusOnObject(fastener, { animate: true, padding: 1.35, targetPoint: onSurface ? point : null });
   pushUndo();
 }
 
@@ -287,7 +346,11 @@ function showAll() {
   showToast('Todos los elementos visibles.');
 }
 
-function setTool(toolName) {
+function setTool(toolName, activeAction = null) {
+  if (toolName !== 'place-fastener') {
+    pendingFastenerPlacement = null;
+    if (sceneManager?.renderer?.domElement) sceneManager.renderer.domElement.style.cursor = '';
+  }
   activeTool = toolName;
   measureTool.setActive(false);
   weldTool.setActive(false);
@@ -299,6 +362,7 @@ function setTool(toolName) {
     scale: 'Escalar',
     measure: 'Medir',
     weld: 'Soldadura',
+    'place-fastener': 'Colocar tornillo',
   };
 
   if (toolName === 'measure') { measureTool.setActive(true); }
@@ -307,7 +371,7 @@ function setTool(toolName) {
   else if (toolName === 'rotate') { sceneManager.setGizmoMode('rotate'); }
   else if (toolName === 'scale') { sceneManager.setGizmoMode('scale'); }
 
-  ribbon.setActiveButton('tool-' + toolName);
+  ribbon.setActiveButton(activeAction || ('tool-' + toolName));
   sidebar.setActiveTool(toolName);
 
   const sb = document.getElementById('sb-tool');
@@ -379,12 +443,13 @@ function _wireStatusChips() {
 
 // ─── COORD READOUT ─────────────────────────────────────────────
 function updateCoordReadout(pos) {
-  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val.toFixed(3); };
-  set('cr-x', pos?.x || 0);
-  set('cr-y', pos?.y || 0);
-  set('cr-z', pos?.z || 0);
+  const toMillimetres = value => Math.round((value || 0) * 1000);
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = String(toMillimetres(val)); };
+  set('cr-x', pos?.x);
+  set('cr-y', pos?.y);
+  set('cr-z', pos?.z);
   const sbC = document.getElementById('sb-coords');
-  if (sbC && pos) sbC.textContent = `${pos.x.toFixed(3)} · ${pos.y.toFixed(3)} · ${pos.z.toFixed(3)}`;
+  if (sbC && pos) sbC.textContent = `${toMillimetres(pos.x)} · ${toMillimetres(pos.y)} · ${toMillimetres(pos.z)} mm`;
 }
 
 // ─── MINI TRANSFORM ────────────────────────────────────────────
@@ -465,18 +530,19 @@ function wireRibbon() {
   ribbon.on('project-save', () => header.onSave?.());
   ribbon.on('project-export', () => header.onExport?.());
   // Estructura
-  ribbon.on('add-heb-col',  () => createProfile('HEB', '200', 3.0, 'column'));
-  ribbon.on('add-hea-col',  () => createProfile('HEA', '200', 3.0, 'column'));
-  ribbon.on('add-ipe',      () => createProfile('IPE', '200', 4.0, 'beam'));
-  ribbon.on('add-ipn',      () => createProfile('IPN', '200', 4.0, 'beam'));
-  ribbon.on('add-upn',      () => createProfile('UPN', '200', 3.0, 'beam'));
-  ribbon.on('add-chs',      () => createProfile('CHS', '114.3x5.0', 3.0, 'column'));
-  ribbon.on('add-shs',      () => createProfile('SHS', '100x100x5', 3.0, 'column'));
-  ribbon.on('add-angle',    () => createProfile('L', '80x8', 2.0, 'beam'));
-  ribbon.on('add-heb-beam', () => createProfile('HEB', '200', 4.0, 'beam'));
+  ribbon.on('add-heb-col',  () => createProfile('HEB', '200', 1.0, 'column'));
+  ribbon.on('add-hea-col',  () => createProfile('HEA', '200', 1.0, 'column'));
+  ribbon.on('add-ipe',      () => createProfile('IPE', '200', 1.0, 'beam'));
+  ribbon.on('add-ipn',      () => createProfile('IPN', '200', 1.0, 'beam'));
+  ribbon.on('add-upn',      () => createProfile('UPN', '200', 1.0, 'beam'));
+  ribbon.on('add-chs',      () => createProfile('CHS', '114.3x5.0', 1.0, 'column'));
+  ribbon.on('add-shs',      () => createProfile('SHS', '100x100x5', 1.0, 'column'));
+  ribbon.on('add-angle',    () => createProfile('L', '80x8', 1.0, 'beam'));
+  ribbon.on('add-heb-beam', () => createProfile('HEB', '200', 1.0, 'beam'));
 
   // Conexiones
   ribbon.on('add-plate',       () => createPlate('base', 0.3, 0.3, 0.02));
+  ribbon.on('add-baseplate',   () => createPlate('base', 0.3, 0.3, 0.02));
   ribbon.on('add-gusset-sq',   () => createPlate('gusset-square', 0.2, 0.2, 0.012));
   ribbon.on('add-gusset-tri',  () => createPlate('gusset-triangle', 0.2, 0.2, 0.012));
   ribbon.on('add-cleat',       () => createPlate('cleat', 0.1, 0.1, 0.01));
@@ -484,10 +550,10 @@ function wireRibbon() {
   ribbon.on('tool-weld',       () => setTool('weld'));
 
   // Tornillería
-  ribbon.on('add-bolt',    () => createFastener('bolt', 'M16'));
-  ribbon.on('add-nut',     () => createFastener('nut', 'M16'));
-  ribbon.on('add-washer',  () => createFastener('washer', 'M16'));
-  ribbon.on('add-anchor',  () => createFastener('anchor', 'M20'));
+  ribbon.on('add-bolt',    () => createFastener('bolt', 'M16', 'add-bolt'));
+  ribbon.on('add-nut',     () => createFastener('nut', 'M16', 'add-nut'));
+  ribbon.on('add-washer',  () => createFastener('washer', 'M16', 'add-washer'));
+  ribbon.on('add-anchor',  () => createFastener('anchor', 'M20', 'add-anchor'));
   ribbon.on('add-bolt-set', () => {
     const metric = document.getElementById('global-metric-select')?.value || 'M16';
     const bolt = new Fastener('bolt', metric);
@@ -515,7 +581,7 @@ function wireRibbon() {
   ribbon.on('measure-dist', () => { measureTool.setMode?.('distance'); setTool('measure'); });
   ribbon.on('measure-angle',() => { measureTool.setMode?.('angle');    setTool('measure'); });
   ribbon.on('measure-area', () => { measureTool.setMode?.('area');     setTool('measure'); });
-  ribbon.on('open-custom-part', () => customPartEditor?.open());
+  ribbon.on('open-custom-part', () => customPartEditor?.open(selectTool.selected));
   ribbon.on('open-render-studio', () => renderStudio?.open());
   ribbon.on('add-load-point', () => loadManager?.openDialog(selectTool.selected, 'point'));
   ribbon.on('add-load-distributed', () => loadManager?.openDialog(selectTool.selected, 'distributed'));
@@ -570,6 +636,7 @@ function wireSidebar() {
   sidebar.on('view-iso',  () => sceneManager.setCameraView('iso'));
   sidebar.on('view-top',  () => sceneManager.setCameraView('top'));
   sidebar.on('view-front',() => sceneManager.setCameraView('front'));
+  sidebar.on('view-back', () => sceneManager.setCameraView('back'));
   sidebar.on('view-left', () => sceneManager.setCameraView('left'));
   sidebar.on('view-right',() => sceneManager.setCameraView('right'));
   sidebar.on('select-object', id => {
@@ -649,13 +716,19 @@ function wireCanvas() {
   canvasEl.addEventListener('click', (e) => {
     if (e.button !== 0) return;
     if (sceneManager._isDragging || sceneManager._justFinishedDragging) return;
-    if (activeTool === 'measure') measureTool.handleClick(e);
+    if (activeTool === 'place-fastener') placePendingFastener(e);
+    else if (activeTool === 'measure') measureTool.handleClick(e);
     else if (activeTool === 'weld') weldTool.handleClick(e);
     else selectTool.handleClick(e);
   });
 
   canvasEl.addEventListener('contextmenu', (e) => {
     e.preventDefault();
+    if (activeTool === 'place-fastener') {
+      setTool('select');
+      showToast('Colocación de tornillo cancelada.');
+      return;
+    }
     if (selectTool.selected) showContextMenu(e.clientX, e.clientY);
   });
 }
@@ -747,14 +820,14 @@ function wireKeyboard() {
 
 // ─── COMMAND PALETTE ──────────────────────────────────────────
 const COMMANDS = [
-  { label: 'Añadir Columna HEB 200',   icon: 'fa-building',       action: () => createProfile('HEB','200',3,'column'),  group: 'Estructura' },
-  { label: 'Añadir Viga IPE 200',       icon: 'fa-building',       action: () => createProfile('IPE','200',4,'beam'),     group: 'Estructura' },
-  { label: 'Añadir Viga HEB 200',       icon: 'fa-building',       action: () => createProfile('HEB','200',4,'beam'),     group: 'Estructura' },
-  { label: 'Añadir Columna HEA 200',    icon: 'fa-building',       action: () => createProfile('HEA','200',3,'column'),  group: 'Estructura' },
-  { label: 'Añadir Canal UPN 200',      icon: 'fa-building',       action: () => createProfile('UPN','200',3,'beam'),    group: 'Estructura' },
-  { label: 'Añadir Tubo CHS',           icon: 'fa-circle',         action: () => createProfile('CHS','114.3x5.0',3,'column'), group: 'Estructura' },
-  { label: 'Añadir Tubo SHS',           icon: 'fa-square',         action: () => createProfile('SHS','100x100x5',3,'column'), group: 'Estructura' },
-  { label: 'Añadir Angular L 80×8',     icon: 'fa-building',       action: () => createProfile('L','80x8',2,'beam'),    group: 'Estructura' },
+  { label: 'Añadir Columna HEB 200',   icon: 'fa-building',       action: () => createProfile('HEB','200',1,'column'),  group: 'Estructura' },
+  { label: 'Añadir Viga IPE 200',       icon: 'fa-building',       action: () => createProfile('IPE','200',1,'beam'),     group: 'Estructura' },
+  { label: 'Añadir Viga HEB 200',       icon: 'fa-building',       action: () => createProfile('HEB','200',1,'beam'),     group: 'Estructura' },
+  { label: 'Añadir Columna HEA 200',    icon: 'fa-building',       action: () => createProfile('HEA','200',1,'column'),  group: 'Estructura' },
+  { label: 'Añadir Canal UPN 200',      icon: 'fa-building',       action: () => createProfile('UPN','200',1,'beam'),    group: 'Estructura' },
+  { label: 'Añadir Tubo CHS',           icon: 'fa-circle',         action: () => createProfile('CHS','114.3x5.0',1,'column'), group: 'Estructura' },
+  { label: 'Añadir Tubo SHS',           icon: 'fa-square',         action: () => createProfile('SHS','100x100x5',1,'column'), group: 'Estructura' },
+  { label: 'Añadir Angular L 80×8',     icon: 'fa-building',       action: () => createProfile('L','80x8',1,'beam'),    group: 'Estructura' },
   { label: 'Añadir Placa Base',         icon: 'fa-square',         action: () => createPlate('base'),                    group: 'Conexiones' },
   { label: 'Añadir Casquillo L',        icon: 'fa-chevron-right',  action: () => createPlate('cleat', 0.1, 0.1, 0.01),   group: 'Conexiones' },
   { label: 'Añadir Apoyo Neopreno',     icon: 'fa-square',         action: () => createPlate('neoprene', 0.15, 0.2, 0.015),group: 'Conexiones' },
@@ -979,7 +1052,7 @@ function alignSelected(axis) {
     o.setPosition(nx, ny, nz);
     o.mesh.updateMatrixWorld(true);
   });
-  showToast(`Alineados ${pool.length} objetos en ${axis.toUpperCase()} = ${target.toFixed(3)}m`);
+  showToast(`Alineados ${pool.length} objetos en ${axis.toUpperCase()} = ${Math.round(target * 1000)} mm`);
   pushUndo();
 }
 

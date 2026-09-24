@@ -890,3 +890,536 @@
   animation-duration: 1ms !important;
   transition-duration: 1ms !important;
 }
+
+/* Daylight landing page: warm paper tones, readable controls, and the supplied steel-joint image. */
+#login-overlay.ep0-overlay {
+  --ep0-bg:#f3f1eb;
+  --ep0-line:rgba(67,82,89,.18);
+  --ep0-line-strong:rgba(67,82,89,.3);
+  --ep0-text:#26343b;
+  --ep0-muted:#5f6d74;
+  --ep0-dim:#7a858a;
+  --ep0-blue:#397fa7;
+  --ep0-blue-strong:#347da8;
+  --ep0-danger:#a83d37;
+  color-scheme:light;
+  background:#f3f1eb;
+}
+.ep0-background {
+  background:radial-gradient(circle at 72% 39%,#fbfaf6 0%,#f1efe8 60%,#e9e8e1 100%);
+}
+.ep0-background::before {
+  inset:0;
+  width:100%;
+  background:var(--ep0-splash-image,url("/login-hero-bg.png")) right center / auto 100% no-repeat;
+  opacity:.8;
+  filter:saturate(.55) contrast(.98) brightness(1.04);
+  -webkit-mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.08) 34%,rgba(0,0,0,.55) 53%,#000 72%);
+  mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.08) 34%,rgba(0,0,0,.55) 53%,#000 72%);
+}
+.ep0-background::after {
+  background:linear-gradient(90deg,#f3f1eb 0%,rgba(243,241,235,.97) 34%,rgba(243,241,235,.78) 56%,rgba(243,241,235,.08) 100%),linear-gradient(180deg,rgba(243,241,235,.12),rgba(243,241,235,.04));
+}
+.ep0-logo { filter:drop-shadow(0 8px 16px rgba(38,52,59,.14)); }
+.ep0-brand h1 { color:#28383f; text-shadow:none; }
+.ep0-brand h1 strong { color:#347da8; }
+.ep0-brand p { color:#607078; }
+.ep0-launch-card {
+  border:1px solid rgba(93,109,116,.2);
+  border-radius:14px;
+  background:rgba(250,249,245,.78);
+  color:#304149;
+  box-shadow:0 5px 18px rgba(48,65,73,.045);
+  backdrop-filter:blur(8px);
+}
+.ep0-launch-card + .ep0-launch-card::before { display:none; }
+.ep0-launch-card:hover { color:#21343e; background:rgba(255,255,252,.94); box-shadow:0 9px 22px rgba(48,65,73,.1); }
+.ep0-launch-card.is-selected { border-color:rgba(52,125,168,.52); background:rgba(228,239,243,.92); }
+.ep0-launch-icon { color:#697980; }
+.ep0-launch-card.is-selected .ep0-launch-icon,.ep0-launch-card:hover .ep0-launch-icon { color:#347da8; }
+.ep0-project-status { color:#347da8; }
+.ep0-field {
+  height:55px;
+  margin-top:8px;
+  padding:0 12px;
+  border:1px solid rgba(80,96,103,.22);
+  border-radius:9px;
+  background:rgba(255,255,252,.8);
+}
+.ep0-field:focus-within { border-color:#6f9db5; box-shadow:0 0 0 3px rgba(57,127,167,.12); }
+.ep0-field-icon,.ep0-password-toggle { color:#52666f; }
+.ep0-field input { color:#26343b; }
+.ep0-field input::placeholder { color:#77848a; }
+.ep0-field input[aria-invalid="true"] { color:#a83d37; }
+.ep0-password-toggle:hover,.ep0-recovery-link:hover,.ep0-footer-links button:hover { color:#245d7d; }
+.ep0-login-submit {
+  border-color:#347da8;
+  border-radius:9px;
+  background:linear-gradient(100deg,#347da8,#3f8eb7 52%,#347da8);
+  box-shadow:0 7px 18px rgba(48,104,135,.18);
+}
+.ep0-login-submit:hover { box-shadow:0 9px 22px rgba(48,104,135,.24); }
+.ep0-window-btn { color:#52636b; }
+.ep0-window-btn:hover { background:rgba(41,57,64,.08); }
+.ep0-window-close:hover { background:rgba(207,65,65,.14); }
+.ep0-modal-backdrop { background:rgba(37,49,55,.34); }
+.ep0-modal { border-color:#d4d8d4; border-radius:16px; background:linear-gradient(145deg,#fffefa,#f2f1eb); box-shadow:0 26px 70px rgba(40,52,59,.2); }
+.ep0-modal-header { border-color:#e0e1dc; }
+.ep0-modal-header h2,.ep0-about h3 { color:#26343b; }
+.ep0-modal-body,.ep0-dialog-form > label:not(.ep0-check-row),.ep0-setting-row label,.ep0-check-row { color:#4f5e65; }
+.ep0-dialog-form input[type="email"],.ep0-dialog-form select { border-color:#d0d5d3; border-radius:8px; background:#fffefa; color:#26343b; }
+#ep0-dialog-close { color:#5f6d74; }
+#ep0-dialog-close:hover { border-color:#d0d5d3; color:#26343b; }
+.ep0-dialog-note,.ep0-info-block p,.ep0-info-block li,.ep0-about p,.ep0-about-grid dt { color:#607078; }
+.ep0-footer-links button { color:#5f6d74; }
+@media(max-width:760px) {
+  .ep0-background::before { opacity:.35; -webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 100%); mask-image:linear-gradient(90deg,transparent 0%,#000 100%); }
+  .ep0-background::after { background:rgba(243,241,235,.68); }
+  .ep0-launch-card { background:rgba(250,249,245,.92); }
+}
+
+/* Inicio · taller de estructuras en blanco crema */
+#login-overlay.ep0-overlay {
+  --ep0-bg: #f4f2ec;
+  --ep0-line: rgba(46, 58, 67, 0.15);
+  --ep0-line-strong: rgba(46, 58, 67, 0.24);
+  --ep0-text: #25313a;
+  --ep0-muted: #66737c;
+  --ep0-dim: #879198;
+  --ep0-blue: #337db8;
+  --ep0-blue-strong: #226da8;
+  --ep0-danger: #ad4541;
+  color-scheme: light;
+  background: var(--ep0-bg);
+}
+
+#login-overlay .ep0-background {
+  background: #f4f2ec;
+}
+
+#login-overlay .ep0-background::before {
+  inset: 0;
+  width: 100%;
+  background: var(--ep0-splash-image) center right / cover no-repeat;
+  opacity: 1;
+  filter: none;
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+#login-overlay .ep0-background::after {
+  background:
+    linear-gradient(90deg, #f4f2ec 0%, rgba(244, 242, 236, 0.97) 24%, rgba(244, 242, 236, 0.88) 38%, rgba(244, 242, 236, 0.24) 68%, rgba(244, 242, 236, 0.08) 100%),
+    linear-gradient(0deg, rgba(244, 242, 236, 0.46), transparent 28%);
+}
+
+#login-overlay .ep0-shell {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  width: min(1500px, 100%);
+  margin: 0 auto;
+  padding: clamp(72px, 10vh, 116px) clamp(28px, 7vw, 112px) clamp(78px, 10vh, 116px);
+}
+
+#login-overlay .ep0-content {
+  width: min(600px, 100%);
+  align-items: stretch;
+  text-align: left;
+}
+
+#login-overlay .ep0-brand {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 20px;
+  text-align: left;
+}
+
+#login-overlay .ep0-logo {
+  grid-column: 1;
+  grid-row: 1 / 3;
+  width: 72px;
+  height: 72px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid rgba(35, 50, 62, 0.12);
+  border-radius: 18px;
+  background: linear-gradient(145deg, #354756, #1e2c37);
+  box-shadow: 0 12px 26px rgba(39, 48, 52, 0.18);
+  filter: none;
+}
+
+#login-overlay .ep0-brand h1 {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: end;
+  color: #29343c;
+  font-size: clamp(21px, 2vw, 29px);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-shadow: none;
+}
+
+#login-overlay .ep0-brand h1 strong {
+  color: #2775b4;
+  font-weight: 700;
+}
+
+#login-overlay .ep0-brand p {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: start;
+  margin: 9px 0 0;
+  color: #68747b;
+  font-size: 11px;
+  line-height: 1.65;
+  letter-spacing: 0.13em;
+}
+
+#login-overlay .ep0-launch-actions {
+  width: 100%;
+  gap: 10px;
+  margin-top: clamp(30px, 5vh, 44px);
+}
+
+#login-overlay .ep0-launch-card {
+  min-height: 98px;
+  gap: 10px;
+  padding: 13px 10px;
+  border: 1px solid rgba(57, 69, 76, 0.14);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.68);
+  box-shadow: 0 5px 14px rgba(50, 57, 59, 0.045);
+  color: #46535b;
+  font-size: 13px;
+  font-weight: 550;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+#login-overlay .ep0-launch-card + .ep0-launch-card::before {
+  display: none;
+}
+
+#login-overlay .ep0-launch-card:hover,
+#login-overlay .ep0-launch-card.is-selected {
+  transform: translateY(-2px);
+  border-color: rgba(39, 117, 180, 0.45);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 9px 21px rgba(44, 67, 81, 0.1);
+  color: #27343d;
+}
+
+#login-overlay .ep0-launch-icon {
+  width: 38px;
+  height: 38px;
+  color: #52636e;
+}
+
+#login-overlay .ep0-launch-icon svg {
+  width: 29px;
+  height: 29px;
+  stroke-width: 1.6;
+}
+
+#login-overlay .ep0-launch-card.is-selected .ep0-launch-icon,
+#login-overlay .ep0-launch-card:hover .ep0-launch-icon {
+  color: var(--ep0-blue-strong);
+  filter: none;
+}
+
+#login-overlay .ep0-launch-card.is-selected::after {
+  right: 32%;
+  left: 32%;
+  bottom: 6px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--ep0-blue);
+  box-shadow: none;
+}
+
+#login-overlay .ep0-project-status {
+  min-height: 18px;
+  margin-top: 8px;
+  color: #3476a8;
+  font-size: 11px;
+  line-height: 18px;
+}
+
+#login-overlay .ep0-login-form {
+  width: 100%;
+  margin-top: 15px;
+}
+
+#login-overlay .ep0-field {
+  height: 54px;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  margin-top: 10px;
+  padding: 0 12px;
+  border: 1px solid rgba(57, 69, 76, 0.17);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.79);
+  box-shadow: 0 2px 6px rgba(44, 53, 57, 0.035);
+}
+
+#login-overlay .ep0-field:focus-within {
+  border-color: rgba(39, 117, 180, 0.68);
+  box-shadow: 0 0 0 3px rgba(39, 117, 180, 0.1);
+}
+
+#login-overlay .ep0-field-icon,
+#login-overlay .ep0-password-toggle {
+  color: #56636c;
+}
+
+#login-overlay .ep0-field-icon svg {
+  width: 19px;
+  height: 19px;
+}
+
+#login-overlay .ep0-field input {
+  color: #26333b;
+  font-size: 14px;
+}
+
+#login-overlay .ep0-field input::placeholder {
+  color: #77838a;
+}
+
+#login-overlay .ep0-field input[aria-invalid="true"] {
+  color: #8e342e;
+}
+
+#login-overlay .ep0-password-toggle:hover,
+#login-overlay .ep0-recovery-link:hover,
+#login-overlay .ep0-footer-links button:hover {
+  color: var(--ep0-blue-strong);
+}
+
+#login-overlay .ep0-login-error {
+  min-height: 24px;
+  padding-top: 5px;
+}
+
+#login-overlay .ep0-login-submit {
+  min-height: 52px;
+  border: 1px solid #246ba4;
+  border-radius: 10px;
+  background: linear-gradient(105deg, #286f9f, #347fb0);
+  box-shadow: 0 7px 16px rgba(44, 99, 137, 0.16);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+#login-overlay .ep0-login-submit:hover {
+  filter: brightness(1.045);
+  box-shadow: 0 9px 21px rgba(44, 99, 137, 0.2);
+}
+
+#login-overlay .ep0-recovery-link {
+  display: block;
+  margin: 10px auto 0;
+  color: #68747b;
+  font-size: 12px;
+}
+
+#login-overlay .ep0-footer-links {
+  right: clamp(24px, 4vw, 60px);
+  bottom: 24px;
+  left: clamp(24px, 4vw, 60px);
+}
+
+#login-overlay .ep0-footer-links button {
+  gap: 9px;
+  color: #4e5d66;
+  font-size: 12px;
+}
+
+#login-overlay .ep0-footer-links button svg {
+  width: 18px;
+  height: 18px;
+}
+
+#login-overlay .ep0-window-controls {
+  top: 18px;
+  right: 20px;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid rgba(57, 69, 76, 0.12);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.54);
+}
+
+#login-overlay .ep0-window-btn {
+  border-radius: 8px;
+  color: #4c5961;
+}
+
+#login-overlay .ep0-window-btn:hover {
+  background: rgba(50, 70, 82, 0.08);
+}
+
+#login-overlay .ep0-window-close:hover {
+  background: rgba(173, 69, 65, 0.12);
+  color: #a63e3a;
+}
+
+#login-overlay .ep0-modal-backdrop {
+  background: rgba(41, 49, 52, 0.28);
+  backdrop-filter: blur(8px);
+}
+
+#login-overlay .ep0-modal {
+  border: 1px solid rgba(57, 69, 76, 0.17);
+  border-radius: 16px;
+  background: linear-gradient(145deg, #fffefa, #f6f4ee);
+  box-shadow: 0 24px 70px rgba(44, 50, 52, 0.22);
+}
+
+#login-overlay .ep0-modal-header {
+  border-color: rgba(57, 69, 76, 0.12);
+}
+
+#login-overlay .ep0-modal-header h2,
+#login-overlay .ep0-info-block h3,
+#login-overlay .ep0-about h3 {
+  color: #29343c;
+}
+
+#login-overlay .ep0-modal-body {
+  color: #4d5a62;
+}
+
+#login-overlay .ep0-dialog-form > label:not(.ep0-check-row),
+#login-overlay .ep0-setting-row label,
+#login-overlay .ep0-check-row {
+  color: #4d5a62;
+}
+
+#login-overlay .ep0-dialog-form input[type="email"],
+#login-overlay .ep0-dialog-form select {
+  border-color: rgba(57, 69, 76, 0.18);
+  border-radius: 8px;
+  background: #fff;
+  color: #29343c;
+}
+
+#login-overlay .ep0-btn-secondary {
+  border-color: rgba(57, 69, 76, 0.18);
+  border-radius: 8px;
+  background: #fff;
+  color: #4d5a62;
+}
+
+#login-overlay .ep0-btn-quiet {
+  color: #68747b;
+}
+
+#login-overlay .ep0-dialog-note,
+#login-overlay .ep0-about p,
+#login-overlay .ep0-about-grid dt,
+#login-overlay .ep0-closed-state p {
+  color: #68747b;
+}
+
+#login-overlay .ep0-info-block kbd {
+  border-color: rgba(57, 69, 76, 0.18);
+  border-radius: 4px;
+  background: #f0eee7;
+  color: #3b4850;
+}
+
+#login-overlay .ep0-about-grid > div {
+  border-color: rgba(57, 69, 76, 0.12);
+}
+
+#login-overlay .ep0-about-grid dd {
+  color: #35424a;
+}
+
+#login-overlay.is-closed {
+  background: #f4f2ec;
+}
+
+#login-overlay .ep0-closed-state h2 {
+  color: #29343c;
+}
+
+#login-overlay #ep0-restore-closed {
+  border-radius: 9px;
+}
+
+@media (max-width: 900px) {
+  #login-overlay .ep0-shell {
+    justify-content: center;
+    padding-right: 28px;
+    padding-left: 28px;
+  }
+
+  #login-overlay .ep0-content {
+    width: min(600px, 100%);
+  }
+
+  #login-overlay .ep0-background::after {
+    background: linear-gradient(90deg, rgba(244, 242, 236, 0.97), rgba(244, 242, 236, 0.8) 74%, rgba(244, 242, 236, 0.55));
+  }
+}
+
+@media (max-width: 620px) {
+  #login-overlay.ep0-overlay { min-height: 680px; }
+  #login-overlay .ep0-shell {
+    align-items: flex-start;
+    padding: 76px 18px 88px;
+  }
+
+  #login-overlay .ep0-brand {
+    grid-template-columns: 58px minmax(0, 1fr);
+    column-gap: 13px;
+  }
+
+  #login-overlay .ep0-logo {
+    width: 58px;
+    height: 58px;
+    padding: 10px;
+    border-radius: 15px;
+  }
+
+  #login-overlay .ep0-brand h1 {
+    font-size: clamp(17px, 5vw, 22px);
+    letter-spacing: 0.1em;
+  }
+
+  #login-overlay .ep0-brand p {
+    margin-top: 6px;
+    font-size: 9px;
+    letter-spacing: 0.09em;
+  }
+
+  #login-overlay .ep0-launch-actions {
+    gap: 7px;
+    margin-top: 27px;
+  }
+
+  #login-overlay .ep0-launch-card {
+    min-height: 84px;
+    gap: 6px;
+    padding: 8px 4px;
+    border-radius: 10px;
+    font-size: 10px;
+  }
+
+  #login-overlay .ep0-launch-icon { height: 28px; }
+  #login-overlay .ep0-launch-icon svg { width: 25px; height: 25px; }
+  #login-overlay .ep0-login-form { margin-top: 12px; }
+  #login-overlay .ep0-field { height: 50px; }
+  #login-overlay .ep0-footer-links { right: 18px; bottom: 12px; left: 18px; }
+  #login-overlay .ep0-window-controls { top: 11px; right: 11px; }
+}
+
+@media (max-width: 380px) {
+  #login-overlay .ep0-shell { padding-right: 14px; padding-left: 14px; }
+  #login-overlay .ep0-launch-actions { gap: 5px; }
+  #login-overlay .ep0-launch-card { font-size: 9px; }
+  #login-overlay .ep0-brand h1 { letter-spacing: 0.07em; }
+}

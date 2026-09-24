@@ -82,6 +82,7 @@ export class ProWorkspaceController {
       getSelected: () => this.getSelected?.(),
       onSelect: object => this.selectObject?.(object),
       onCommit: () => { this.pushUndo?.(); this.refresh?.(); },
+      onPlaceFastener: (subtype, metric) => this.beginFastenerPlacement?.(subtype, metric),
       toast: message => this.toast?.(message),
     });
     this.reportGenerator = new ReportGenerator({
@@ -117,8 +118,11 @@ export class ProWorkspaceController {
     on('preset-portal', () => this.presetManager.open('structure', 'portal-duopitch'));
     on('preset-truss', () => this.presetManager.open('structure', 'truss'));
     on('preset-connections', () => this.presetManager.open('connection'));
-    on('bolt-matrix', () => this.presetManager.openBoltMatrix());
-    on('explode-assembly', () => this.toggleExploded(this.getSelected?.()));
+    on('bolt-matrix', () => {
+      const selected = this.getSelected?.();
+      if (selected?.type === 'plate') this.presetManager.openBoltMatrix();
+      else this.toast?.('Para una matriz, seleccione primero una placa. Para colocar un tornillo individual, use Tornillo.');
+    });
     on('run-check', () => this.calculateSelected());
     on('run-bolt-check', () => this.calculate(this.getSelected?.(), 'bolt', this.getSelected?.()?.connectionInput || {}));
     on('run-weld-check', () => this.calculate(this.getSelected?.(), 'weld', this.getSelected?.()?.connectionInput || {}));

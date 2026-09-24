@@ -24,7 +24,7 @@ export class SnapManager {
     this.snapToMidpoint = true;
     this.snapToFace = true;
     this.snapToGrid = true;
-    this.gridSnap = 0.25;
+    this.gridSnap = 0.001; // 1 mm in the metre-based scene coordinate system.
     this.snapRadiusPx = 9;
     this.markerSizePx = 10;
 

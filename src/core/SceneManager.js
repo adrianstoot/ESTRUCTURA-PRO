@@ -5,7 +5,7 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 /**
  * SceneManager v4.0 — Rewritten for Three.js r183+
  *  - Correct TransformControls usage (no getHelper(), direct scene.add)
- *  - Fast zoom & pan (zoomSpeed=2, panSpeed=1.2)
+ *  - Cursor-focused zoom and responsive damped navigation
  *  - Drag-state tracking to prevent click-deselect on gizmo drop
  *  - PBR metallic / clay / wire / xray visual modes
  */
@@ -19,11 +19,13 @@ export class SceneManager {
     this._hoveredOriginals = new Map();
     this._isDragging = false;
     this._justFinishedDragging = false;
+    this._transformStartPosition = null;
 
     // ── Renderer ─────────────────────────────────────────────
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: false,
+      preserveDrawingBuffer: true,
       powerPreference: 'high-performance',
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -42,7 +44,7 @@ export class SceneManager {
     // ── Cameras ───────────────────────────────────────────────
     const aspect = container.clientWidth / container.clientHeight;
     this.perspCamera = new THREE.PerspectiveCamera(45, aspect, 0.01, 2000);
-    this.perspCamera.position.set(8, 6, 10);
+    this.perspCamera.position.set(6, 4.5, 7.5);
     this.perspCamera.lookAt(0, 0, 0);
 
     const frustumSize = 10;
@@ -68,32 +70,63 @@ export class SceneManager {
     // ── Orbit Controls ───────────────────────────────────────
     this.orbitControls = new OrbitControls(this.camera, this.renderer.domElement);
     this.orbitControls.enableDamping = true;
-    this.orbitControls.dampingFactor = 0.08;
+    this.orbitControls.dampingFactor = 0.13;
     this.orbitControls.minDistance = 0.1;
     this.orbitControls.maxDistance = 600;
     this.orbitControls.screenSpacePanning = true;
-    this.orbitControls.zoomSpeed = 2.5; // Mejorado para más agilidad
-    this.orbitControls.panSpeed = 1.2;
-    this.orbitControls.rotateSpeed = 0.8;
+    this.orbitControls.zoomSpeed = 3.6;
+    this.orbitControls.zoomToCursor = true;
+    this.orbitControls.panSpeed = 1.25;
+    this.orbitControls.rotateSpeed = 0.95;
 
     // ── Transform Controls — r183+ API ───────────────────────
     // In r183+, TransformControls extends Controls (NOT Object3D).
     // getHelper() returns this._root which IS an Object3D → add that to scene.
     this.transformControls = new TransformControls(this.camera, this.renderer.domElement);
     this.transformControls.setSize(0.55);
+    this.transformControls.setTranslationSnap(0.001); // 1 mm; scene coordinates are metres.
     this.scene.add(this.transformControls.getHelper());
+
+    this._transformReadout = document.createElement('div');
+    this._transformReadout.className = 'transform-mm-readout';
+    this._transformReadout.setAttribute('role', 'status');
+    this._transformReadout.setAttribute('aria-live', 'polite');
+    this._transformReadout.style.cssText = [
+      'position:absolute', 'display:none', 'z-index:1200', 'pointer-events:none',
+      'transform:translate(-50%,-115%)', 'padding:5px 8px',
+      'border:1px solid rgba(93,190,238,.9)', 'background:rgba(12,16,21,.94)',
+      'color:#f3f7fa', 'font:600 11px/1.3 "JetBrains Mono",monospace',
+      'white-space:nowrap', 'box-shadow:0 2px 8px rgba(0,0,0,.35)',
+    ].join(';');
+    container.appendChild(this._transformReadout);
 
     this.transformControls.addEventListener('mouseDown', () => {
       this.orbitControls.enabled = false;
       this._isDragging = true;
+      const object = this.transformControls.object;
+      this._transformStartPosition = object?.getWorldPosition(new THREE.Vector3()) || null;
+      if (this._transformReadout) this._transformReadout.style.display = this._transformStartPosition ? 'block' : 'none';
+      this._renderTransformReadout();
     });
 
     this.transformControls.addEventListener('mouseUp', () => {
       this.orbitControls.enabled = true;
       this._isDragging = false;
+      this._transformReadout.style.display = 'none';
+      this._transformStartPosition = null;
       this._justFinishedDragging = true;
       setTimeout(() => { this._justFinishedDragging = false; }, 150);
       document.dispatchEvent(new Event('gizmo-drag-end'));
+    });
+    this.transformControls.addEventListener('objectChange', () => this._renderTransformReadout());
+
+    // Keep the technical grid readable and let close-ups resolve down to 1 mm.
+    this.orbitControls.addEventListener('change', () => {
+      this.gridManager?.updateForCamera(
+        this.camera,
+        this.renderer.domElement.clientHeight,
+        this.orbitControls.target,
+      );
     });
 
     // ── Raycaster ────────────────────────────────────────────
@@ -115,6 +148,24 @@ export class SceneManager {
   }
 
   // ─── LIGHTS ──────────────────────────────────────────────────
+  _renderTransformReadout() {
+    const object = this.transformControls?.object;
+    const start = this._transformStartPosition;
+    const readout = this._transformReadout;
+    if (!object || !start || !readout || !this._isDragging) return;
+
+    const position = object.getWorldPosition(new THREE.Vector3());
+    const delta = position.clone().sub(start);
+    const mm = value => `${value > 0 ? '+' : ''}${Math.round(value * 1000)}`;
+    readout.textContent = `ΔX ${mm(delta.x)} · ΔY ${mm(delta.y)} · ΔZ ${mm(delta.z)} mm`;
+
+    const projected = position.clone().project(this.camera);
+    const canvasRect = this.renderer.domElement.getBoundingClientRect();
+    const containerRect = this.container.getBoundingClientRect();
+    readout.style.left = `${canvasRect.left - containerRect.left + (projected.x + 1) * canvasRect.width / 2}px`;
+    readout.style.top = `${canvasRect.top - containerRect.top + (1 - projected.y) * canvasRect.height / 2}px`;
+  }
+
   _setupLights() {
     this.hemiLight = new THREE.HemisphereLight(0xb0c4dd, 0x404858, 0.9);
     this.scene.add(this.hemiLight);
@@ -320,6 +371,37 @@ export class SceneManager {
     return this.objects.find(o => o.id === target.userData.bimId) || null;
   }
 
+  getSurfaceHitAtMouse(event) {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    this.mouse.set(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+    const hit = this.raycaster.intersectObjects(this.getSelectableObjects(), true)[0];
+    if (!hit) return null;
+    let owner = hit.object;
+    while (owner && !owner.userData?.bimId) owner = owner.parent;
+    const normal = hit.face?.normal
+      ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize()
+      : new THREE.Vector3(0, 1, 0);
+    return { point: hit.point.clone(), normal, objectId: owner?.userData?.bimId || null };
+  }
+
+  getPlacementPlanePointAtMouse(event, planePoint = this.orbitControls.target) {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    this.mouse.set(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+    const normal = this.camera.getWorldDirection(new THREE.Vector3());
+    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, planePoint);
+    return this.raycaster.ray.intersectPlane(plane, new THREE.Vector3());
+  }
+
   // ─── GIZMO ───────────────────────────────────────────────────
   attachGizmo(mesh) {
     if (mesh) this.transformControls.attach(mesh);
@@ -336,15 +418,15 @@ export class SceneManager {
 
   // ─── CAMERA VIEWS (ARCHICAD MODE) ──────────────────────────
   _cameraViewPreset(view) {
-    const d = 16;
+    const d = 12;
     const positions = {
-      iso:        [8, 6, 10],
-      top:        [0, d, 0.01],
-      bottom:     [0, -d, 0.01],
-      front:      [0, d * 0.25, d],
-      back:       [0, d * 0.25, -d],
-      left:       [-d, d * 0.25, 0],
-      right:      [d, d * 0.25, 0],
+      iso:        [6, 4.5, 7.5],
+      top:        [0, d, 0],
+      bottom:     [0, -d, 0],
+      front:      [0, 0, d],
+      back:       [0, 0, -d],
+      left:       [-d, 0, 0],
+      right:      [d, 0, 0],
       topFront:   [0, d * 0.75, d * 0.75],
       topRight:   [d * 0.75, d * 0.75, 0],
       topLeft:    [-d * 0.75, d * 0.75, 0],
@@ -355,6 +437,16 @@ export class SceneManager {
       backLeft:   [-d * 0.75, d * 0.25, -d * 0.75],
     };
     return positions[view] || positions.iso;
+  }
+
+  _cameraUpForView(view) {
+    if (view === 'top') return new THREE.Vector3(0, 0, -1);
+    if (view === 'bottom') return new THREE.Vector3(0, 0, 1);
+    return new THREE.Vector3(0, 1, 0);
+  }
+
+  _notifyCameraViewChanged() {
+    document.dispatchEvent(new Event('camera-view-changed'));
   }
 
   setCameraView(view) {
@@ -375,13 +467,20 @@ export class SceneManager {
     }
 
     this.camera.position.set(...pos);
+    this.camera.up.copy(this._cameraUpForView(view));
     this.camera.lookAt(target);
+    this.camera.updateMatrixWorld(true);
     this.orbitControls.object = this.camera;
     this.orbitControls.target.copy(target);
+    const damping = this.orbitControls.enableDamping;
+    this.orbitControls.enableDamping = false;
     this.orbitControls.update();
+    this.orbitControls.enableDamping = damping;
+    this.activeView = view;
 
     this.transformControls.camera = this.camera;
     this._updateZoomLabel();
+    this._notifyCameraViewChanged();
   }
 
   /** Smooth animated transition between camera views. */
@@ -396,8 +495,11 @@ export class SceneManager {
     const willPersp = !isOrthoView;
     if (wasPersp !== willPersp) {
       // Carry current view to new camera so animation starts at the right place
-      const startWorld = this.camera.position.clone();
+      const sourceCamera = this.camera;
+      const startWorld = sourceCamera.position.clone();
       const startTarget = this.orbitControls.target.clone();
+      const startQuaternion = sourceCamera.quaternion.clone();
+      const startUp = sourceCamera.up.clone();
       if (willPersp) {
         this._cameraMode = 'perspective';
         this.camera = this.perspCamera;
@@ -410,6 +512,9 @@ export class SceneManager {
         this.camera.updateProjectionMatrix();
       }
       this.camera.position.copy(startWorld);
+      this.camera.quaternion.copy(startQuaternion);
+      this.camera.up.copy(startUp);
+      this.camera.lookAt(startTarget);
       this.orbitControls.object = this.camera;
       this.orbitControls.target.copy(startTarget);
       this.transformControls.camera = this.camera;
@@ -417,6 +522,8 @@ export class SceneManager {
 
     const startPos = this.camera.position.clone();
     const startTarget = this.orbitControls.target.clone();
+    const startUp = this.camera.up.clone();
+    const endUp = this._cameraUpForView(view);
     const t0 = performance.now();
     const ease = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
@@ -426,18 +533,48 @@ export class SceneManager {
       const e = ease(k);
       this.camera.position.lerpVectors(startPos, endPos, e);
       this.orbitControls.target.lerpVectors(startTarget, endTarget, e);
+      this.camera.up.lerpVectors(startUp, endUp, e).normalize();
       this.orbitControls.update();
       if (k < 1) {
         this._cameraAnim = requestAnimationFrame(step);
       } else {
+        this.camera.up.copy(endUp);
+        this.camera.position.copy(endPos);
+        this.orbitControls.target.copy(endTarget);
+        this.orbitControls.update();
+        this.activeView = view;
         this._cameraAnim = null;
         this._updateZoomLabel();
+        this._notifyCameraViewChanged();
       }
     };
     step();
   }
 
   /** Fit whole scene in view (Home / F key). */
+  _orthographicBounds(box) {
+    this.camera.updateMatrixWorld(true);
+    const min = new THREE.Vector3(Infinity, Infinity, Infinity);
+    const max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
+    for (let mask = 0; mask < 8; mask += 1) {
+      const world = new THREE.Vector3(
+        mask & 1 ? box.max.x : box.min.x,
+        mask & 2 ? box.max.y : box.min.y,
+        mask & 4 ? box.max.z : box.min.z,
+      ).applyMatrix4(this.camera.matrixWorldInverse);
+      min.min(world); max.max(world);
+    }
+    return { width: max.x - min.x, height: max.y - min.y };
+  }
+
+  _orthographicZoomToBounds(box, padding = 1.4) {
+    const projected = this._orthographicBounds(box);
+    const aspect = Math.max(0.1, this.container.clientWidth / Math.max(1, this.container.clientHeight));
+    const zoomY = this._baseFrustumSize / Math.max(0.01, projected.height);
+    const zoomX = this._baseFrustumSize * aspect / Math.max(0.01, projected.width);
+    return Math.min(zoomX, zoomY) / Math.max(1, padding);
+  }
+
   fitAll(padding = 1.4) {
     if (!this.objects.length) return;
     const box = new THREE.Box3();
@@ -451,8 +588,10 @@ export class SceneManager {
       if (dir.lengthSq() < 1e-6) dir.set(1, 0.7, 1).normalize();
       this.camera.position.copy(center).add(dir.multiplyScalar(size * padding));
     } else {
-      this.camera.position.copy(center).add(new THREE.Vector3(0, 10, 0.01));
-      this.camera.zoom = this._baseFrustumSize / (size * padding);
+      const direction = this.camera.position.clone().sub(this.orbitControls.target).normalize();
+      if (!direction.lengthSq()) direction.set(1, 1, 1).normalize();
+      this.camera.position.copy(center).addScaledVector(direction, 10);
+      this.camera.zoom = this._orthographicZoomToBounds(box, padding);
       this.camera.updateProjectionMatrix();
       this._updateZoomLabel();
     }
@@ -464,23 +603,73 @@ export class SceneManager {
     return this.camera.quaternion.clone();
   }
 
-  focusOnObject(bimObj) {
+  focusOnObject(bimObj, { animate = true, padding = 1.35, duration = 260, targetPoint = null } = {}) {
     if (!bimObj?.mesh) return;
     const box = new THREE.Box3().setFromObject(bimObj.mesh);
-    const center = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3()).length();
-    this.orbitControls.target.copy(center);
-    
+    const center = targetPoint?.clone?.() || box.getCenter(new THREE.Vector3());
+    const size = Math.max(0.01, box.getSize(new THREE.Vector3()).length());
+    const startTarget = this.orbitControls.target.clone();
+    const direction = this.camera.position.clone().sub(startTarget).normalize();
+    if (direction.lengthSq() < 1e-8) direction.set(1, 0.7, 1).normalize();
+    let endPosition;
+    let endZoom = null;
+
     if (this._cameraMode === 'perspective') {
-      this.camera.position.copy(center).add(new THREE.Vector3(size, size * 0.7, size));
+      const radius = size / 2;
+      const halfFov = THREE.MathUtils.degToRad(this.camera.fov / 2);
+      const distance = Math.max(this.orbitControls.minDistance, radius / Math.sin(halfFov) * padding);
+      endPosition = center.clone().addScaledVector(direction, distance);
     } else {
-      // Ortográfica: centrar y ajustar zoom (frustum)
-      this.camera.position.set(center.x, center.y + 10, center.z + 0.01);
-      this.camera.zoom = this._baseFrustumSize / (size * 1.5);
+      const distance = Math.max(1, this.camera.position.distanceTo(startTarget));
+      endPosition = center.clone().addScaledVector(direction, distance);
+      endZoom = THREE.MathUtils.clamp(this._orthographicZoomToBounds(box, padding), 0.05, 500);
+    }
+
+    if (animate && !document.documentElement.classList.contains('reduced-motion')) {
+      this._animateFocusTo(endPosition, center, endZoom, duration);
+    } else {
+      this.camera.position.copy(endPosition);
+      this.orbitControls.target.copy(center);
+      if (endZoom !== null) this.camera.zoom = endZoom;
       this.camera.updateProjectionMatrix();
+      this.orbitControls.update();
       this._updateZoomLabel();
     }
-    this.orbitControls.update();
+  }
+
+  _animateFocusTo(endPosition, endTarget, endZoom, duration) {
+    if (this._focusAnimFrame) cancelAnimationFrame(this._focusAnimFrame);
+    if (this._cameraAnim) {
+      cancelAnimationFrame(this._cameraAnim);
+      this._cameraAnim = null;
+    }
+    const startPosition = this.camera.position.clone();
+    const startTarget = this.orbitControls.target.clone();
+    const startZoom = this.camera.zoom;
+    const startTime = performance.now();
+    const step = now => {
+      const linear = THREE.MathUtils.clamp((now - startTime) / Math.max(1, duration), 0, 1);
+      const eased = linear * linear * (3 - 2 * linear);
+      this.camera.position.lerpVectors(startPosition, endPosition, eased);
+      this.orbitControls.target.lerpVectors(startTarget, endTarget, eased);
+      if (endZoom !== null) {
+        this.camera.zoom = THREE.MathUtils.lerp(startZoom, endZoom, eased);
+        this.camera.updateProjectionMatrix();
+      }
+      this.orbitControls.update();
+      if (linear < 1) this._focusAnimFrame = requestAnimationFrame(step);
+      else {
+        this.camera.position.copy(endPosition);
+        this.orbitControls.target.copy(endTarget);
+        if (endZoom !== null) {
+          this.camera.zoom = endZoom;
+          this.camera.updateProjectionMatrix();
+        }
+        this._focusAnimFrame = null;
+        this._updateZoomLabel();
+      }
+    };
+    this._focusAnimFrame = requestAnimationFrame(step);
   }
 
   // ─── ZOOM WIDGET ─────────────────────────────────────────────
@@ -534,11 +723,43 @@ export class SceneManager {
     } else {
       this.camera.zoom = 1;
       this.camera.updateProjectionMatrix();
+      const direction = this.camera.position.clone().sub(this.orbitControls.target).normalize();
+      if (!direction.lengthSq()) direction.set(1, 1, 1).normalize();
       this.orbitControls.target.set(0, 0, 0);
-      this.camera.position.set(0, 10, 0.01);
+      this.camera.position.copy(this.orbitControls.target).addScaledVector(direction, 10);
     }
     this.orbitControls.update();
     this._updateZoomLabel();
+  }
+
+  /** Switch to parallel projection while retaining the current camera direction and target. */
+  useOrthographicProjection() {
+    if (this._cameraMode === 'ortho') return;
+    const target = this.orbitControls.target.clone();
+    const position = this.camera.position.clone();
+    const quaternion = this.camera.quaternion.clone();
+    const up = this.camera.up.clone();
+    const distance = Math.max(0.01, position.distanceTo(target));
+    const perspective = this.camera;
+    const verticalSpan = 2 * distance * Math.tan(THREE.MathUtils.degToRad(perspective.fov / 2));
+
+    this._cameraMode = 'ortho';
+    this.camera = this.orthoCamera;
+    this.camera.position.copy(position);
+    this.camera.quaternion.copy(quaternion);
+    this.camera.up.copy(up);
+    this.camera.zoom = this._baseFrustumSize / Math.max(0.01, verticalSpan);
+    this.camera.updateProjectionMatrix();
+    this.camera.updateMatrixWorld(true);
+    this.orbitControls.object = this.camera;
+    this.orbitControls.target.copy(target);
+    this.orbitControls.enableRotate = true;
+    this.orbitControls.update();
+    this.transformControls.camera = this.camera;
+    this.activeView = 'orthographic-current';
+    this.gridManager?.updateForCamera(this.camera, this.renderer.domElement.clientHeight, target);
+    this._updateZoomLabel();
+    this._notifyCameraViewChanged();
   }
 
   // ─── THEME ───────────────────────────────────────────────────
