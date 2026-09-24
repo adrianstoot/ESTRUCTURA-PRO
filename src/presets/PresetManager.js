@@ -1,11 +1,8 @@
-import { baseAssembly, portal, truss, expansionJoint, steelDeck, castellated, doubleCleat, bracedBay } from './WorkshopAssemblies.js';
 import * as THREE from 'three';
 import { Profile } from '../entities/Profile.js';
 import { Plate } from '../entities/Plate.js';
 import { Fastener, FASTENER_METRICS } from '../entities/Fastener.js';
 import { getProfileData } from '../entities/ProfileCatalog.js';
-import { boltLayout, validateHolesInContour } from '../core/WorkshopGeometry.js';
-import { buildSmartConnection } from '../core/SmartConnection.js';
 import { PRESET_REFERENCE_NOTES } from './ReferenceInventory.js';
 
 const STRUCTURE_PRESETS = [
@@ -79,7 +76,7 @@ const SCHEMAS = {
     ['metric', 'Métrica', 'select', 'M16', ['M16','M20']], ['cleatHeight', 'Altura casquillo', 'number', 0.22, 'm'],
   ],
   'baseplate-rigid': [
-    ['metric', 'Perno', 'select', 'M20', ['M20','M24','M30']], ['plateWidth', 'Placa', 'number', 0.4, 'm'],
+    ['metric', 'Perno', 'select', 'M20', ['M20','M24','M30']], ['plateWidth', 'Placa', 'number', 0.3, 'm'],
     ['plateThickness', 'Espesor', 'number', 0.02, 'm'], ['columnSize', 'Pilar HEB', 'select', '200', ['180','200','220','240','260']],
   ],
   'beam-splice': [
@@ -129,7 +126,7 @@ export class PresetManager {
           <div class="preset-form-wrap">
             <div class="preset-preview"><div class="preset-preview__grid"></div><span id="preset-preview-label"></span></div>
             <form id="preset-form" class="preset-form"></form>
-            <aside class="preset-scope"><b>Geometría de taller</b><span>La geometría se genera lista para editar. Compruebe las dimensiones, contactos y holguras antes de documentar el montaje.</span></aside>
+            <aside class="preset-scope"><b>Alcance de cálculo</b><span>La geometría se genera lista para editar. Su estado inicial es “sin verificar” hasta ejecutar las comprobaciones ELU/ELS.</span></aside>
           </div>
         </div>
         <footer class="preset-dialog__footer">
@@ -147,7 +144,7 @@ export class PresetManager {
         <label class="preset-field"><span>${label}</span>
           ${type === 'select'
             ? `<select name="${id}">${unitOrOptions.map(option => `<option value="${option}" ${String(option) === String(value) ? 'selected' : ''}>${option}</option>`).join('')}</select>`
-            : `<span class="input-with-unit"><input name="${id}" type="number" value="${unitOrOptions==='m'?Number(value)*1000:value}" step="any" min="0"><em>${unitOrOptions==='m'?'mm':unitOrOptions || ''}</em></span>`}
+            : `<span class="input-with-unit"><input name="${id}" type="number" value="${value}" step="any" min="0"><em>${unitOrOptions || ''}</em></span>`}
         </label>`).join('');
     };
     renderForm();
@@ -159,8 +156,8 @@ export class PresetManager {
     }));
     const insert = () => {
       const values = Object.fromEntries(new FormData(overlay.querySelector('#preset-form')).entries());
-      for(const [key,,type,,unit] of SCHEMAS[selectedId]||[])if(type==='number'&&unit==='m')values[key]=Number(values[key])/1000;
-      try { const created = this.generate(selectedId, values); if (created.length) close(); } catch(error) { let alert=overlay.querySelector('[role="alert"]');if(!alert){alert=document.createElement("p");alert.setAttribute("role","alert");alert.className="workshop-error";overlay.querySelector(".preset-form-wrap").appendChild(alert);}alert.textContent=error.message; }
+      const created = this.generate(selectedId, values);
+      if (created.length) close();
     };
     overlay.querySelector('.preset-close').addEventListener('click', close);
     overlay.querySelector('.preset-cancel').addEventListener('click', close);
@@ -187,7 +184,7 @@ export class PresetManager {
       'rigid-haunched-node': () => this._rigidHaunchedNode(ctx),
     };
     if (!generators[id]) return [];
-    try { generators[id](); } catch(error) { created.forEach(o=>this.sceneManager.removeObject(o)); throw error; }
+    generators[id]();
     const reference = PRESET_REFERENCE_NOTES[id] || { sources: [], confidence: 'parametric', speculative: [] };
     created.forEach(object => {
       object.params.templateInstanceId = instanceId;
@@ -219,6 +216,7 @@ export class PresetManager {
     if (!object?.mesh) return null;
     object.params.role = role;
     object.params.assemblyId = assemblyId;
+    object.params.calculationStatus = 'NOT_CHECKED';
     this.sceneManager?.addObject?.(object);
     if (position) object.mesh.position.copy(position);
     if (quaternion) object.mesh.quaternion.copy(quaternion);
@@ -323,33 +321,171 @@ export class PresetManager {
     this._refreshUserData(plate);
     return groupId;
   }
-  _baseAssembly(ctx,x,z,options={}) { return baseAssembly(this,ctx,x,z,options); }
-
-  _portalDuopitch(ctx) { portal(this,ctx,true); }
-
-  _truss(ctx) { truss(this,ctx); }
-
-  _portalFlat(ctx) { portal(this,ctx,false); }
-  _endplate(ctx) { this._smartNode(ctx,false); }
-  _smartNode(ctx,double=false) {
-    const p=ctx.raw,cs=this._validSize('HEB',p.columnSize,'300'),bs=this._validSize('IPE',p.beamSize,'300'),c=new Profile('HEB',cs,4,'column');
-    this._add(ctx,c,'Pilar continuo',new THREE.Vector3(0,2,0));
-    for(const side of double?[1,-1]:[1]){
-      const b=new Profile('IPE',bs,2.8,'beam');this._add(ctx,b,side===1?'Viga derecha':'Viga izquierda',new THREE.Vector3(0,2.4,side*(getProfileData('HEB',cs).h/2000+.02+1.4)));
-      if(side<0){b.mesh.rotation.y=Math.PI;b.mesh.updateMatrixWorld(true);}
-      const result=buildSmartConnection(c,b,{thicknessMm:number(p.plateThickness,.02)*1000,diameter:Number((p.metric||'M20').slice(1)),haunch:true});
-      for(const part of result.parts){this.sceneManager.addObject(part);ctx.created.push(part);}
+  _baseAssembly(ctx, x, z, options = {}) {
+    const width = Math.max(0.24, number(options.width, 0.36));
+    const thickness = Math.max(0.012, number(options.thickness, 0.022));
+    const metric = options.metric || 'M24';
+    const y = number(options.y, 0);
+    const spacing = width * 0.68;
+    const coordinates = this._grid(2, 2, spacing, spacing);
+    const prefix = options.rolePrefix || 'Base';
+    const plate = this._plate(ctx, 'base', width, width, thickness, `${prefix} · placa`, [x, y + thickness / 2, z], [-Math.PI / 2, 0, 0], {
+      holes: this._holes(metric, coordinates), edgeBevel: 0.001, cornerRadius: Math.min(0.018, width * 0.06),
+    });
+    const anchors = coordinates.map((coordinate, index) => {
+      plate.mesh.updateMatrixWorld(true);
+      const world = plate.mesh.localToWorld(new THREE.Vector3(coordinate.x, coordinate.y, thickness / 2));
+      const anchor = this._fastener(ctx, metric, `${prefix} · anclaje J ${index + 1}`, world.toArray(), [0, 1, 0], 'anchor', {
+        shankLengthMm: number(options.embedmentMm, 450), doubleNut: options.doubleNut !== false,
+      });
+      if (anchor) { anchor.params.row = coordinate.row; anchor.params.col = coordinate.col; }
+      return anchor;
+    });
+    this._registerBoltGroup(plate, anchors, { id: `${ctx.id}_${prefix.replace(/\W+/g, '_')}_anchors`, rows: 2, cols: 2, spacingX: spacing, spacingY: spacing, metric });
+    if (options.stiffeners !== false) {
+      const stiffenerWidth = width * 0.38;
+      const stiffenerHeight = Math.max(0.14, width * 0.5);
+      for (let index = 0; index < 4; index++) this._plate(ctx, 'stiffener', stiffenerWidth, stiffenerHeight, 0.012, `${prefix} · rigidizador ${index + 1}`, [x, y + thickness, z], [0, index * Math.PI / 2, 0], {
+        points: [{ x: 0, y: 0 }, { x: stiffenerWidth, y: 0 }, { x: 0, y: stiffenerHeight }], cornerRadius: 0.008, edgeBevel: 0.0008,
+      });
     }
+    return { plate, anchors };
   }
 
-  _doubleCleat(ctx) { doubleCleat(this,ctx); }
+  _portalDuopitch(ctx) {
+    const p = ctx.raw;
+    const span = Math.max(2, number(p.span, 12));
+    const height = Math.max(2, number(p.height, 6));
+    const rise = span * Math.max(0, number(p.slope, 15)) / 200;
+    const columnSize = this._validSize('HEB', p.columnSize, '300');
+    const beamSize = this._validSize('IPE', p.beamSize, '330');
+    const columnHalfWidth = (getProfileData('HEB', columnSize)?.b || 300) / 2000;
+    this._member(ctx, [-span / 2, 0.025, 0], [-span / 2, height, 0], 'HEB', columnSize, 'Pilar izquierdo');
+    this._member(ctx, [span / 2, 0.025, 0], [span / 2, height, 0], 'HEB', columnSize, 'Pilar derecho');
+    this._member(ctx, [-span / 2 + columnHalfWidth, height, 0], [0, height + rise, 0], 'IPE', beamSize, 'Dintel inclinado izquierdo');
+    this._member(ctx, [0, height + rise, 0], [span / 2 - columnHalfWidth, height, 0], 'IPE', beamSize, 'Dintel inclinado derecho');
+    this._baseAssembly(ctx, -span / 2, 0, { width: 0.42, thickness: 0.025, metric: 'M24', rolePrefix: 'Base izquierda' });
+    this._baseAssembly(ctx, span / 2, 0, { width: 0.42, thickness: 0.025, metric: 'M24', rolePrefix: 'Base derecha' });
+    this._plate(ctx, 'gusset-custom', 0.7, 0.42, 0.014, 'Cartela de alero izquierda', [-span / 2 + columnHalfWidth, height, 0], [0, 0, 0], {
+      points: [{ x: 0, y: 0.12 }, { x: 0.7, y: 0.2 }, { x: 0.32, y: -0.3 }, { x: 0, y: -0.3 }], cornerRadius: 0.015, edgeBevel: 0.001,
+    });
+    this._plate(ctx, 'gusset-custom', 0.7, 0.42, 0.014, 'Cartela de alero derecha', [span / 2 - columnHalfWidth, height, 0], [0, 0, 0], {
+      points: [{ x: 0, y: 0.12 }, { x: -0.7, y: 0.2 }, { x: -0.32, y: -0.3 }, { x: 0, y: -0.3 }], cornerRadius: 0.015, edgeBevel: 0.001,
+    });
+    this._plate(ctx, 'gusset-square', 0.52, 0.34, 0.014, 'Chapa de cumbrera', [0, height + rise, 0], [0, 0, 0], { cornerRadius: 0.025, edgeBevel: 0.001 });
+  }
+
+  _truss(ctx) {
+    const p = ctx.raw;
+    const span = Math.max(2, number(p.span, 12));
+    const depth = Math.max(0.4, number(p.height, 2.4));
+    const panels = clamp(Math.round(number(p.panels, 6)), 2, 16);
+    const series = p.series === 'L' ? 'L' : 'SHS';
+    const size = this._validSize(series, p.size, series === 'L' ? '80x8' : '100x100x5');
+    const heel = Math.max(0.25, depth * 0.18);
+    const dx = span / panels;
+    const bottom = [];
+    const top = [];
+    for (let index = 0; index <= panels; index++) {
+      const x = -span / 2 + index * dx;
+      bottom.push([x, 0, 0]);
+      top.push([x, heel + (depth - heel) * (1 - Math.abs(2 * x / span)), 0]);
+    }
+    for (let index = 0; index < panels; index++) {
+      this._member(ctx, bottom[index], bottom[index + 1], series, size, `Cordón inferior ${index + 1}`, { detailLevel: 'performance' });
+      this._member(ctx, top[index], top[index + 1], series, size, `Cordón superior ${index + 1}`, { detailLevel: 'performance' });
+    }
+    for (let index = 0; index <= panels; index++) this._member(ctx, bottom[index], top[index], series, size, `Montante ${index + 1}`, { detailLevel: 'performance' });
+    for (let index = 0; index < panels; index++) {
+      let a;
+      let b;
+      if (p.trussType === 'Warren') [a, b] = index % 2 === 0 ? [bottom[index], top[index + 1]] : [top[index], bottom[index + 1]];
+      else if (index < panels / 2) [a, b] = [top[index], bottom[index + 1]];
+      else [a, b] = [bottom[index], top[index + 1]];
+      this._member(ctx, a, b, series, size, `Diagonal ${index + 1}`, { detailLevel: 'performance' });
+    }
+    const gussetWidth = clamp(dx * 0.28, 0.18, 0.34);
+    [...bottom.map((point, index) => ({ point, role: `Cartela inferior ${index + 1}` })), ...top.map((point, index) => ({ point, role: `Cartela superior ${index + 1}` }))]
+      .forEach(({ point, role }) => this._plate(ctx, 'gusset-square', gussetWidth, 0.18, 0.01, role, point, [0, 0, 0], { cornerRadius: 0.018, edgeBevel: 0.0007 }));
+  }
+
+  _portalFlat(ctx) {
+    const p = ctx.raw;
+    const span = Math.max(2, number(p.span, 8));
+    const height = Math.max(2, number(p.height, 4));
+    const columnSize = this._validSize('HEB', p.columnSize, '240');
+    const beamSize = this._validSize('IPE', p.beamSize, '300');
+    const halfColumn = (getProfileData('HEB', columnSize)?.b || 240) / 2000;
+    this._member(ctx, [-span / 2, 0.022, 0], [-span / 2, height, 0], 'HEB', columnSize, 'Pilar izquierdo');
+    this._member(ctx, [span / 2, 0.022, 0], [span / 2, height, 0], 'HEB', columnSize, 'Pilar derecho');
+    this._member(ctx, [-span / 2 + halfColumn + 0.012, height, 0], [span / 2 - halfColumn - 0.012, height, 0], 'IPE', beamSize, 'Viga de forjado');
+    this._baseAssembly(ctx, -span / 2, 0, { width: 0.36, thickness: 0.022, metric: 'M20', rolePrefix: 'Base izquierda', stiffeners: false });
+    this._baseAssembly(ctx, span / 2, 0, { width: 0.36, thickness: 0.022, metric: 'M20', rolePrefix: 'Base derecha', stiffeners: false });
+    [-1, 1].forEach(side => {
+      const jointX = side * (span / 2 - halfColumn);
+      const cleats = [
+        this._plate(ctx, 'cleat', 0.09, 0.22, 0.008, `Casquillo ${side < 0 ? 'izquierdo' : 'derecho'} delantero`, [jointX, height, -0.012], [0, side < 0 ? 0 : Math.PI, 0], { legDepth: 0.075 }),
+        this._plate(ctx, 'cleat', 0.09, 0.22, 0.008, `Casquillo ${side < 0 ? 'izquierdo' : 'derecho'} trasero`, [jointX, height, 0.012], [0, side < 0 ? Math.PI : 0, 0], { legDepth: 0.075 }),
+      ];
+      const bolts = [];
+      [jointX + side * 0.035, jointX + side * 0.075].forEach((x, col) => [-0.05, 0.05].forEach((dy, row) => {
+        const bolt = this._fastener(ctx, 'M16', `Tornillo de apoyo ${side < 0 ? 'izq.' : 'dcha.'} ${row + 1}.${col + 1}`, [x, height + dy, -0.04], [0, 0, 1], 'bolt', { assemblyMode: 'through-bolt', shankLengthMm: 80 });
+        if (bolt) { bolt.params.row = row; bolt.params.col = col; bolts.push(bolt); }
+      }));
+      this._registerBoltGroup(cleats[0], bolts, { id: `${ctx.id}_flat_${side}`, rows: 2, cols: 2, spacingX: 0.04, spacingY: 0.1, metric: 'M16' });
+    });
+  }
+  _endplate(ctx) {
+    const p = ctx.raw;
+    const metric = p.metric || 'M20';
+    const count = Number(p.boltCount) === 4 ? 4 : 8;
+    const rows = count / 2;
+    const width = Math.max(0.2, number(p.plateWidth, 0.28));
+    const height = Math.max(0.28, number(p.plateHeight, 0.46));
+    const thickness = Math.max(0.01, number(p.plateThickness, 0.02));
+    const beamY = 2.35;
+    const columnFace = (getProfileData('HEB', '300')?.b || 300) / 2000;
+    const spacingX = Math.min(width * 0.5, 0.14);
+    const spacingY = rows > 1 ? Math.min(height * 0.72 / (rows - 1), 0.1) : 0.1;
+    const coordinates = this._grid(rows, 2, spacingX, spacingY);
+    this._member(ctx, [0, 0, 0], [0, 3.25, 0], 'HEB', '300', 'Pilar soporte');
+    this._member(ctx, [columnFace + thickness, beamY, 0], [3.4, beamY, 0], 'IPE', '300', 'Viga conectada');
+    const plate = this._plate(ctx, 'gusset-square', width, height, thickness, 'Chapa de testa perforada', [columnFace + thickness / 2, beamY, 0], [0, Math.PI / 2, 0], {
+      holes: this._holes(metric, coordinates), cornerRadius: 0.012, edgeBevel: 0.001,
+    });
+    const bolts = this._boltsOnPlate(ctx, plate, coordinates, metric, 'Tornillo de testa', [1, 0, 0], { shankLengthMm: 80 });
+    this._registerBoltGroup(plate, bolts, { id: `${ctx.id}_endplate`, rows, cols: 2, spacingX, spacingY, metric });
+    this._plate(ctx, 'stiffener', 0.36, 0.24, 0.012, 'Cartela inferior de viga', [columnFace + thickness, beamY, 0], [0, 0, 0], {
+      points: [{ x: 0, y: 0 }, { x: 0.36, y: 0 }, { x: 0.12, y: -0.24 }, { x: 0, y: -0.24 }], cornerRadius: 0.012, edgeBevel: 0.0008,
+    });
+    this._plate(ctx, 'stiffener', 0.28, 0.18, 0.012, 'Cartela superior de viga', [columnFace + thickness, beamY, 0], [0, 0, 0], {
+      points: [{ x: 0, y: 0 }, { x: 0.28, y: 0 }, { x: 0, y: 0.18 }], cornerRadius: 0.01, edgeBevel: 0.0008,
+    });
+  }
+
+  _doubleCleat(ctx) {
+    const metric = ctx.raw.metric || 'M16';
+    const height = Math.max(0.16, number(ctx.raw.cleatHeight, 0.22));
+    const beamY = 2.2;
+    const face = (getProfileData('HEB', '240')?.b || 240) / 2000;
+    this._member(ctx, [0, 0, 0], [0, 3, 0], 'HEB', '240', 'Pilar soporte');
+    this._member(ctx, [face + 0.012, beamY, 0], [3.2, beamY, 0], 'IPE', '270', 'Viga conectada');
+    const front = this._plate(ctx, 'cleat', 0.08, height, 0.008, 'Casquillo L delantero', [face, beamY, -0.014], [0, 0, 0], { legDepth: 0.075 });
+    this._plate(ctx, 'cleat', 0.08, height, 0.008, 'Casquillo L trasero', [face, beamY, 0.014], [0, Math.PI, 0], { legDepth: 0.075 });
+    const bolts = [];
+    [0.045, 0.095].forEach((offset, col) => [-0.05, 0.05].forEach((dy, row) => {
+      const bolt = this._fastener(ctx, metric, `Tornillo de casquillos ${row + 1}.${col + 1}`, [face + offset, beamY + dy, -0.04], [0, 0, 1], 'bolt', { assemblyMode: 'through-bolt', shankLengthMm: 80 });
+      if (bolt) { bolt.params.row = row; bolt.params.col = col; bolts.push(bolt); }
+    }));
+    this._registerBoltGroup(front, bolts, { id: `${ctx.id}_cleats`, rows: 2, cols: 2, spacingX: 0.05, spacingY: 0.1, metric });
+  }
 
   _baseplate(ctx) {
     const p = ctx.raw;
     const metric = p.metric || 'M20';
-    const width = Math.max(0.24, number(p.plateWidth, 0.4));
+    const width = Math.max(0.24, number(p.plateWidth, 0.3));
     const thickness = Math.max(0.012, number(p.plateThickness, 0.02));
-    this._baseAssembly(ctx, 0, 0, { width, thickness, metric, rolePrefix: 'Placa base rígida', embedmentMm: 450, columnSize:p.columnSize||'200' });
+    this._baseAssembly(ctx, 0, 0, { width, thickness, metric, rolePrefix: 'Placa base rígida', embedmentMm: 450 });
     this._member(ctx, [0, thickness, 0], [0, 1.8, 0], 'HEB', p.columnSize || '200', 'Pilar');
   }
 
@@ -387,9 +523,54 @@ export class PresetManager {
     this._registerBoltGroup(top, topBolts, { id: `${ctx.id}_splice_top`, rows: 2, cols: 2, spacingX: 0.22, spacingY: flangeSpacingY, metric });
     this._registerBoltGroup(bottom, bottomBolts, { id: `${ctx.id}_splice_bottom`, rows: 2, cols: 2, spacingX: 0.22, spacingY: flangeSpacingY, metric });
   }
-  _bracedBayX(ctx) { bracedBay(this,ctx); }
+  _bracedBayX(ctx) {
+    const p = ctx.raw;
+    const span = Math.max(2, number(p.span, 6));
+    const height = Math.max(2, number(p.height, 4));
+    const columnSize = this._validSize('HEB', p.columnSize, '240');
+    const beamSize = this._validSize('IPE', p.beamSize, '300');
+    const braceSize = this._validSize('CHS', p.braceSize, '76.1x3.6');
+    const inset = 0.22;
+    this._member(ctx, [-span / 2, 0.022, 0], [-span / 2, height, 0], 'HEB', columnSize, 'Pilar izquierdo');
+    this._member(ctx, [span / 2, 0.022, 0], [span / 2, height, 0], 'HEB', columnSize, 'Pilar derecho');
+    this._member(ctx, [-span / 2, height, 0], [span / 2, height, 0], 'IPE', beamSize, 'Viga superior');
+    this._member(ctx, [-span / 2 + inset, 0.28, 0], [span / 2 - inset, height - 0.22, 0], 'CHS', braceSize, 'Diagonal ascendente', { detailLevel: 'performance' });
+    this._member(ctx, [span / 2 - inset, 0.28, 0], [-span / 2 + inset, height - 0.22, 0], 'CHS', braceSize, 'Diagonal descendente', { detailLevel: 'performance' });
+    this._baseAssembly(ctx, -span / 2, 0, { width: 0.36, thickness: 0.022, metric: 'M20', rolePrefix: 'Base arriostrada izquierda', stiffeners: false });
+    this._baseAssembly(ctx, span / 2, 0, { width: 0.36, thickness: 0.022, metric: 'M20', rolePrefix: 'Base arriostrada derecha', stiffeners: false });
+    const corners = [[-span / 2 + inset, 0.28], [span / 2 - inset, 0.28], [-span / 2 + inset, height - 0.22], [span / 2 - inset, height - 0.22]];
+    corners.forEach(([x, y], index) => this._plate(ctx, 'gusset-square', 0.32, 0.25, 0.012, `Cartela de arriostramiento ${index + 1}`, [x, y, 0], [0, 0, 0], { cornerRadius: 0.025, edgeBevel: 0.0008 }));
+    this._plate(ctx, 'gusset-square', 0.28, 0.28, 0.012, 'Chapa de cruce (detalle inferido)', [0, height / 2, 0], [0, 0, Math.PI / 4], { cornerRadius: 0.04, edgeBevel: 0.0008 });
+  }
 
-  _castellatedBeam(ctx) { castellated(this,ctx); }
+  _castellatedBeam(ctx) {
+    const p = ctx.raw;
+    const span = Math.max(2.5, number(p.span, 7));
+    const supportHeight = Math.max(1, number(p.supportHeight, 3.2));
+    const depth = clamp(number(p.beamDepth, 0.5), 0.28, 1.2);
+    const openings = clamp(Math.round(number(p.openingCount, 7)), 3, 14);
+    const columnSize = this._validSize('HEB', p.columnSize, '240');
+    const flangeWidth = clamp(depth * 0.42, 0.16, 0.32);
+    const flangeThickness = clamp(depth * 0.035, 0.014, 0.03);
+    const webThickness = clamp(depth * 0.018, 0.008, 0.018);
+    const pitch = span / (openings + 1);
+    const radiusX = Math.min(pitch * 0.34, depth * 0.38);
+    const radiusY = depth * 0.3;
+    const holes = [];
+    for (let index = 1; index <= openings; index++) {
+      const x = -span / 2 + index * pitch;
+      holes.push({ points: [
+        { x: x - radiusX, y: 0 }, { x: x - radiusX / 2, y: radiusY }, { x: x + radiusX / 2, y: radiusY },
+        { x: x + radiusX, y: 0 }, { x: x + radiusX / 2, y: -radiusY }, { x: x - radiusX / 2, y: -radiusY },
+      ] });
+    }
+    this._member(ctx, [-span / 2, 0, 0], [-span / 2, supportHeight, 0], 'HEB', columnSize, 'Pilar izquierdo');
+    this._member(ctx, [span / 2, 0, 0], [span / 2, supportHeight, 0], 'HEB', columnSize, 'Pilar derecho');
+    this._plate(ctx, 'gusset-square', span, depth - 2 * flangeThickness, webThickness, 'Alma alveolar perforada', [0, supportHeight, 0], [0, 0, 0], { holes, edgeBevel: 0.0005 });
+    this._plate(ctx, 'gusset-square', span, flangeWidth, flangeThickness, 'Ala superior armada', [0, supportHeight + depth / 2 - flangeThickness / 2, 0], [-Math.PI / 2, 0, 0], { edgeBevel: 0.0008 });
+    this._plate(ctx, 'gusset-square', span, flangeWidth, flangeThickness, 'Ala inferior armada', [0, supportHeight - depth / 2 + flangeThickness / 2, 0], [-Math.PI / 2, 0, 0], { edgeBevel: 0.0008 });
+    [-span / 2 + 0.12, span / 2 - 0.12].forEach((x, index) => this._plate(ctx, 'stiffener', depth * 0.72, flangeWidth * 0.9, 0.012, `Rigidizador extremo ${index + 1}`, [x, supportHeight, 0], [0, 0, Math.PI / 2], { cornerRadius: 0.008, edgeBevel: 0.0006 }));
+  }
 
   _compositeColumn(ctx) {
     const p = ctx.raw;
@@ -399,22 +580,113 @@ export class PresetManager {
     const size = this._validSize('UPN', p.channelSize, '200');
     const data = getProfileData('UPN', size) || getProfileData('UPN', '200');
     const depth = data.h / 1000;
-    this._member(ctx, [-separation / 2, 0.024, 0], [-separation / 2, height-.009, 0], 'UPN', size, 'Montante canal izquierdo', { sectionRotation: 0 });
-    this._member(ctx, [separation / 2, 0.024, 0], [separation / 2, height-.009, 0], 'UPN', size, 'Montante canal derecho', { sectionRotation: 180 });
+    this._member(ctx, [-separation / 2, 0.02, 0], [-separation / 2, height, 0], 'UPN', size, 'Montante canal izquierdo', { sectionRotation: 0 });
+    this._member(ctx, [separation / 2, 0.02, 0], [separation / 2, height, 0], 'UPN', size, 'Montante canal derecho', { sectionRotation: 180 });
     const count = Math.max(2, Math.floor((height - 0.5) / spacing) + 1);
     for (let index = 0; index < count; index++) {
       const y = 0.3 + index * (height - 0.6) / Math.max(1, count - 1);
-      this._plate(ctx, 'gusset-square', separation + 0.16, 0.14, 0.012, `Presilla frontal ${index + 1}`, [0, y, depth / 2 + 0.006], [0, 0, 0], { cornerRadius: 0.012, edgeBevel: 0.0007 });
-      this._plate(ctx, 'gusset-square', separation + 0.16, 0.14, 0.012, `Presilla posterior ${index + 1}`, [0, y, -depth / 2 - 0.006], [0, Math.PI, 0], { cornerRadius: 0.012, edgeBevel: 0.0007 });
+      this._plate(ctx, 'gusset-square', separation + 0.16, 0.14, 0.012, `Presilla frontal ${index + 1}`, [0, y, depth / 2 + 0.008], [0, 0, 0], { cornerRadius: 0.012, edgeBevel: 0.0007 });
+      this._plate(ctx, 'gusset-square', separation + 0.16, 0.14, 0.012, `Presilla posterior ${index + 1}`, [0, y, -depth / 2 - 0.008], [0, Math.PI, 0], { cornerRadius: 0.012, edgeBevel: 0.0007 });
     }
     this._plate(ctx, 'base', separation + 0.3, depth + 0.18, 0.024, 'Placa base de pilar compuesto', [0, 0.012, 0], [-Math.PI / 2, 0, 0], { cornerRadius: 0.018, edgeBevel: 0.001 });
     this._plate(ctx, 'gusset-square', separation + 0.22, depth + 0.12, 0.018, 'Chapa de cabeza', [0, height, 0], [-Math.PI / 2, 0, 0], { cornerRadius: 0.015, edgeBevel: 0.0008 });
   }
-  _expansionJoint(ctx) { expansionJoint(this,ctx); }
+  _expansionJoint(ctx) {
+    const p = ctx.raw;
+    const span = Math.max(2, number(p.span, 6));
+    const height = Math.max(2, number(p.height, 4));
+    const gap = clamp(number(p.gap, 0.08), 0.025, 0.3);
+    const columnSize = this._validSize('HEB', p.columnSize, '200');
+    const beamSize = this._validSize('IPE', p.beamSize, '270');
+    const columnDepth = (getProfileData('HEB', columnSize)?.h || 200) / 1000;
+    const lineOffset = (columnDepth + gap) / 2;
+    [-1, 1].forEach(line => {
+      const z = line * lineOffset;
+      const label = line < 0 ? 'Alineación A' : 'Alineación B';
+      this._member(ctx, [-span / 2, 0.02, z], [-span / 2, height, z], 'HEB', columnSize, `${label} · pilar izquierdo`);
+      this._member(ctx, [span / 2, 0.02, z], [span / 2, height, z], 'HEB', columnSize, `${label} · pilar derecho`);
+      this._member(ctx, [-span / 2, height, z], [span / 2, height, z], 'IPE', beamSize, `${label} · viga independiente`);
+      [-span / 2, span / 2].forEach((x, index) => this._plate(ctx, 'base', 0.34, 0.34, 0.022, `${label} · base ${index + 1}`, [x, 0.011, z], [-Math.PI / 2, 0, 0], { cornerRadius: 0.015, edgeBevel: 0.0008 }));
+    });
+    this._plate(ctx, 'neoprene', span * 0.16, gap * 0.72, 0.012, 'Indicador de junta libre (no resistente)', [0, height + 0.04, 0], [-Math.PI / 2, 0, 0], { cornerRadius: 0.008 });
+  }
 
-  _steelDeckStuds(ctx) { steelDeck(this,ctx); }
+  _sheetFacet(ctx, a, b, length, thickness, role) {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const facetWidth = Math.hypot(dx, dy);
+    if (facetWidth < 1e-6) return null;
+    const worldX = new THREE.Vector3(0, 0, 1);
+    const worldY = new THREE.Vector3(dx / facetWidth, dy / facetWidth, 0);
+    const worldZ = new THREE.Vector3().crossVectors(worldX, worldY).normalize();
+    const matrix = new THREE.Matrix4().makeBasis(worldX, worldY, worldZ);
+    const quaternion = new THREE.Quaternion().setFromRotationMatrix(matrix);
+    return this._plateQ(ctx, 'gusset-square', length, facetWidth, thickness, role, [(a.x + b.x) / 2, (a.y + b.y) / 2, 0], quaternion, { edgeBevel: 0 });
+  }
 
-  _rigidHaunchedNode(ctx) { this._smartNode(ctx,true); }
+  _steelDeckStuds(ctx) {
+    const p = ctx.raw;
+    const width = Math.max(1, number(p.width, 3));
+    const length = Math.max(2, number(p.length, 6));
+    const ribs = clamp(Math.round(number(p.ribs, 6)), 2, 12);
+    const ribHeight = clamp(number(p.deckHeight, 0.075), 0.04, 0.15);
+    const beamSize = this._validSize('IPE', p.beamSize, '240');
+    const metric = p.metric || 'M20';
+    const deckY = 2.6;
+    const beamData = getProfileData('IPE', beamSize) || getProfileData('IPE', '240');
+    const beamTop = deckY - 0.012;
+    const beamCenterY = beamTop - beamData.h / 2000;
+    const beamX = width * 0.3;
+    this._member(ctx, [-beamX, beamCenterY, -length / 2], [-beamX, beamCenterY, length / 2], 'IPE', beamSize, 'Viga soporte izquierda', { detailLevel: 'performance' });
+    this._member(ctx, [beamX, beamCenterY, -length / 2], [beamX, beamCenterY, length / 2], 'IPE', beamSize, 'Viga soporte derecha', { detailLevel: 'performance' });
+    const cell = width / ribs;
+    const gauge = 0.0012;
+    for (let rib = 0; rib < ribs; rib++) {
+      const x0 = -width / 2 + rib * cell;
+      const points = [
+        { x: x0, y: deckY }, { x: x0 + cell * 0.18, y: deckY }, { x: x0 + cell * 0.35, y: deckY + ribHeight },
+        { x: x0 + cell * 0.65, y: deckY + ribHeight }, { x: x0 + cell * 0.82, y: deckY }, { x: x0 + cell, y: deckY },
+      ];
+      for (let segment = 0; segment < points.length - 1; segment++) this._sheetFacet(ctx, points[segment], points[segment + 1], length, gauge, `Chapa grecada · greca ${rib + 1} · paño ${segment + 1}`);
+    }
+    const studCount = clamp(Math.floor(length / 0.75), 4, 10);
+    [-beamX, beamX].forEach((x, beamIndex) => {
+      for (let index = 0; index < studCount; index++) {
+        const z = -length / 2 + 0.35 + index * (length - 0.7) / Math.max(1, studCount - 1);
+        this._fastener(ctx, metric, `Conector de cabeza ${beamIndex + 1}.${index + 1}`, [x, beamTop, z], [0, 1, 0], 'stud', { shankLengthMm: 100 });
+      }
+    });
+  }
+  _rigidHaunchedNode(ctx) {
+    const p = ctx.raw;
+    const metric = p.metric || 'M20';
+    const columnSize = this._validSize('HEB', p.columnSize, '300');
+    const beamSize = this._validSize('IPE', p.beamSize, '300');
+    const thickness = Math.max(0.012, number(p.plateThickness, 0.02));
+    const columnData = getProfileData('HEB', columnSize) || getProfileData('HEB', '300');
+    const beamData = getProfileData('IPE', beamSize) || getProfileData('IPE', '300');
+    const face = columnData.b / 2000;
+    const beamY = 2.4;
+    const plateWidth = Math.max(0.24, beamData.b / 1000 + 0.1);
+    const plateHeight = Math.max(0.42, beamData.h / 1000 + 0.14);
+    const spacingX = Math.min(0.14, plateWidth * 0.5);
+    const spacingY = Math.min(0.22, plateHeight * 0.5);
+    const coordinates = this._grid(2, 2, spacingX, spacingY);
+    const holes = this._holes(metric, coordinates);
+    this._member(ctx, [0, 0, 0], [0, 4, 0], 'HEB', columnSize, 'Pilar continuo');
+    this._member(ctx, [-3.2, beamY, 0], [-face - thickness, beamY, 0], 'IPE', beamSize, 'Viga izquierda');
+    this._member(ctx, [face + thickness, beamY, 0], [3.2, beamY, 0], 'IPE', beamSize, 'Viga derecha');
+    const leftPlate = this._plate(ctx, 'gusset-square', plateWidth, plateHeight, thickness, 'Chapa de testa izquierda', [-face - thickness / 2, beamY, 0], [0, -Math.PI / 2, 0], { holes, cornerRadius: 0.012, edgeBevel: 0.001 });
+    const rightPlate = this._plate(ctx, 'gusset-square', plateWidth, plateHeight, thickness, 'Chapa de testa derecha', [face + thickness / 2, beamY, 0], [0, Math.PI / 2, 0], { holes, cornerRadius: 0.012, edgeBevel: 0.001 });
+    const leftBolts = this._boltsOnPlate(ctx, leftPlate, coordinates, metric, 'Tornillo rígido izquierdo', [-1, 0, 0], { shankLengthMm: 85 });
+    const rightBolts = this._boltsOnPlate(ctx, rightPlate, coordinates, metric, 'Tornillo rígido derecho', [1, 0, 0], { shankLengthMm: 85 });
+    this._registerBoltGroup(leftPlate, leftBolts, { id: `${ctx.id}_rigid_left`, rows: 2, cols: 2, spacingX, spacingY, metric });
+    this._registerBoltGroup(rightPlate, rightBolts, { id: `${ctx.id}_rigid_right`, rows: 2, cols: 2, spacingX, spacingY, metric });
+    this._plate(ctx, 'stiffener', 0.62, 0.34, 0.014, 'Cartela inferior izquierda', [-face - thickness, beamY, 0], [0, 0, 0], { points: [{ x: 0, y: 0 }, { x: -0.62, y: 0 }, { x: -0.18, y: -0.34 }, { x: 0, y: -0.34 }], cornerRadius: 0.015, edgeBevel: 0.0008 });
+    this._plate(ctx, 'stiffener', 0.62, 0.34, 0.014, 'Cartela inferior derecha', [face + thickness, beamY, 0], [0, 0, 0], { points: [{ x: 0, y: 0 }, { x: 0.62, y: 0 }, { x: 0.18, y: -0.34 }, { x: 0, y: -0.34 }], cornerRadius: 0.015, edgeBevel: 0.0008 });
+    [beamY - beamData.h / 2000, beamY + beamData.h / 2000].forEach((y, index) => this._plate(ctx, 'stiffener', columnData.b / 1000, columnData.h / 1000, 0.014, `Diafragma de continuidad ${index + 1}`, [0, y, 0], [-Math.PI / 2, 0, 0], { cornerRadius: 0.006, edgeBevel: 0.0006 }));
+    this._plate(ctx, 'gusset-square', 0.32, plateHeight * 0.8, 0.012, 'Chapa de refuerzo de alma de pilar', [0, beamY, columnData.h / 2000 + 0.008], [0, 0, 0], { cornerRadius: 0.01, edgeBevel: 0.0006 });
+  }
 
   openBoltMatrix(plate = this.getSelected()) {
     if (!plate || plate.type !== 'plate') {
@@ -433,7 +705,7 @@ export class PresetManager {
         <label>Métrica<select name="metric"><option>M16</option><option selected>M20</option><option>M24</option><option>M30</option></select></label>
         <label>Clase<select name="boltClass"><option selected>8.8</option><option>10.9</option></select></label>
       </div>
-      <p class="dialog-note">TALLER-02: mínimos geométricos de borde y paso. Se valida el contorno real. Una matriz nueva sustituye la anterior.</p>
+      <p class="dialog-note">Se comprobarán cortante, aplastamiento y tracción desde la pestaña ELU/ELS del inspector.</p>
       <footer><button type="button" class="btn-secondary" data-close>Cancelar</button><button type="button" class="btn-primary" data-create>Crear matriz</button></footer>
     </section>`;
     document.body.appendChild(overlay);
@@ -441,12 +713,12 @@ export class PresetManager {
     overlay.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', close));
     overlay.querySelector('[data-create]').addEventListener('click', () => {
       const read = name => overlay.querySelector(`[name="${name}"]`).value;
-      try { this.generateBoltMatrix(plate, {
+      this.generateBoltMatrix(plate, {
         rows: Number(read('rows')), cols: Number(read('cols')),
         spacingX: Number(read('sx')) / 1000, spacingY: Number(read('sy')) / 1000,
         metric: read('metric'), boltClass: read('boltClass'),
       });
-      close(); } catch(error) { this.toast(error.message,6000); }
+      close();
     });
   }
 
@@ -458,29 +730,19 @@ export class PresetManager {
     const metric = options.metric || 'M20';
     const boltClass = options.boltClass || '8.8';
     const groupId = `bolts_${Date.now().toString(36)}_${++this._counter}`;
-    if(['cleat','folded'].includes(plate.params.subtype))throw new Error('Seleccione una chapa plana para perforar.');
-    const diameter=Number(metric.slice(1)),holeD=FASTENER_METRICS[metric]?.holeD;
-    if(!holeD)throw new Error('Métrica no disponible.');
-    boltLayout({width:plate.params.width*1000,height:plate.params.height*1000,diameter,rows,cols,edge:1.5*holeD,pitchX:spacingX*1000,pitchY:spacingY*1000});
     const coordinates = this._grid(rows, cols, spacingX, spacingY);
-    const holes=this._holes(metric,coordinates).map(h=>({...h,matrixGenerated:true}));
-    const oldGroup=plate.params.boltGroup;
-    const existingHoles = (plate.params.holes || []).filter(h=>!h.matrixGenerated && !(oldGroup&&this._grid(oldGroup.rows,oldGroup.cols,oldGroup.spacingX,oldGroup.spacingY).some(p=>Math.hypot(p.x-h.x,p.y-h.y)<1e-6)));
-    validateHolesInContour(plate._outlinePoints(),[...existingHoles,...holes]);
-    this.sceneManager.objects.filter(o=>o.params.hostPlateId===plate.id).forEach(o=>this.sceneManager.removeObject(o));
-    plate.update({ holes: [...existingHoles, ...holes] });
+    const existingHoles = Array.isArray(plate.params.holes) ? plate.params.holes : [];
+    plate.update({ holes: [...existingHoles, ...this._holes(metric, coordinates)] });
     plate.mesh.updateMatrixWorld(true);
     const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(plate.mesh.getWorldQuaternion(new THREE.Quaternion())).normalize();
-    const metricData=FASTENER_METRICS[metric];
-    const lengthMm = plate.params.thickness*1000+metricData.nutH+2*metricData.washerT;
+    const lengthMm = Math.max(55, plate.params.thickness * 1000 + 50);
     const created = coordinates.map(coordinate => {
       const world = plate.mesh.localToWorld(new THREE.Vector3(coordinate.x, coordinate.y, 0));
-      const origin = world.clone().addScaledVector(normal, -plate.params.thickness/2-(metricData.nutH+metricData.washerT)/1000);
+      const origin = world.clone().addScaledVector(normal, -lengthMm / 2000);
       const bolt = new Fastener('bolt', metric, lengthMm, { assemblyMode: 'through-bolt' });
       bolt.params.boltClass = boltClass;
       bolt.params.boltGroupId = groupId;
       bolt.params.hostPlateId = plate.id;
-      bolt.params.hostLocal = [coordinate.x,coordinate.y,-plate.params.thickness/2-(metricData.nutH+metricData.washerT)/1000];
       bolt.params.row = coordinate.row;
       bolt.params.col = coordinate.col;
       this.sceneManager?.addObject?.(bolt);

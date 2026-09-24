@@ -1,5 +1,3 @@
-import { bakeParametricScale } from './core/ParametricScale.js';
-import * as THREE from 'three';
 import './ui/layout.css';
 import './ui/geometric-system.css';
 import './ui/editor-pro.css';
@@ -17,18 +15,16 @@ import { MeasureTool } from './tools/MeasureTool.js';
 import { WeldTool } from './tools/WeldTool.js';
 import { GizmoManager } from './tools/GizmoManager.js';
 import { Header } from './ui/Header.js';
-import { Sidebar } from './ui/WorkshopSidebar.js';
-import { Ribbon } from './ui/WorkshopRibbon.js';
-import { PropertiesPanel } from './ui/WorkshopPropertiesPanel.js';
+import { Sidebar } from './ui/Sidebar.js';
+import { Ribbon } from './ui/Ribbon.js';
+import { PropertiesPanel } from './ui/PropertiesPanel.js';
 import { SectionDrawer } from './ui/SectionDrawer.js';
-import { TutorialModule } from './ui/WorkshopClassroom.js';
+import { TutorialModule } from './ui/TutorialModule.js';
 import { CustomPartEditor } from './ui/CustomPartEditor.js';
-import { ProWorkspaceController } from './core/WorkshopController.js';
-import { PlacementTool } from './tools/PlacementTool.js';
-import './ui/workshop.css';
-
-import { CaptureTool } from './core/CaptureTool.js';
-import { serializeBIMObject, serializeProject, restoreProject, createBIMObjectFromState } from './core/ProjectSerializer.js';
+import { ProWorkspaceController } from './core/ProWorkspaceController.js';
+import { LoadManager } from './core/LoadManager.js';
+import { RenderStudio } from './core/RenderStudio.js';
+import { serializeBIMObject, serializeProject, restoreProject } from './core/ProjectSerializer.js';
 
 // ─── DOM ELEMENTS ─────────────────────────────────────────────
 const appEl = document.getElementById('app');
@@ -41,7 +37,7 @@ const ribbon = new Ribbon(document.getElementById('ribbon'));
 
 let sceneManager, gridManager, snapManager, gizmoManager;
 let sectionDrawer, propsPanel, tutorialModule, proController;
-let customPartEditor, captureTool, placementTool;
+let customPartEditor, loadManager, renderStudio;
 let selectTool, measureTool, weldTool;
 let navCube = null;
 let activeTool = 'select';
@@ -51,7 +47,7 @@ let gizmoSpace = 'world';
 let _undoStack = [];
 let _undoPointer = -1;
 let _currentProjectName = 'Sin título';
-let _appSettings = { units: 'metric', interfaceTheme: 'dark', snapPrecision: '1', autosave: true, reducedMotion: false };
+let _appSettings = { units: 'metric', interfaceTheme: 'dark', snapPrecision: '10', autosave: true, reducedMotion: false };
 const RECENTS_KEY = 'estructuras-pro:recent';
 const VIEW_SLOTS_KEY = 'estructuras-pro:views';
 
@@ -78,12 +74,23 @@ function initApp(launchContext = {}) {
 
   sectionDrawer = new SectionDrawer();
   propsPanel = new PropertiesPanel(document.getElementById('properties-panel'), sectionDrawer);
-  tutorialModule = new TutorialModule({ generate: (id,parameters,lesson) => proController.createLesson(id,parameters,lesson), toast: showToast });
-  placementTool = new PlacementTool(sceneManager, snapManager, { onCommit: (object) => { selectAndShow(object); pushUndo(); refreshWorkspace(); }, toast: showToast });
-  captureTool = new CaptureTool(sceneManager, showToast);
+  tutorialModule = new TutorialModule();
+  loadManager = new LoadManager(sceneManager, {
+    toast: showToast,
+    onCommit: (element) => {
+      propsPanel.update(element);
+      pushUndo();
+      refreshWorkspace();
+    },
+  });
+  renderStudio = new RenderStudio(sceneManager);
   customPartEditor = new CustomPartEditor(sceneManager, {
     toast: showToast,
-    onCreate: (plate) => { setTool("select"); placementTool.begin({ object: plate }); },
+    onCreate: (plate) => {
+      selectAndShow(plate);
+      pushUndo();
+      refreshWorkspace();
+    },
   });
 
   // Tools
@@ -101,18 +108,16 @@ function initApp(launchContext = {}) {
   propsPanel.onDelete = (el) => deleteSelected();
   propsPanel.onDuplicate = (el) => duplicateSelected();
   propsPanel.onColorChange = (el, color) => { updateStatusBar(); pushUndo(); };
-  propsPanel.onPropertyChange = (el) => { updateStatusBar(); pushUndo(); };
+  propsPanel.onPropertyChange = (el) => { loadManager?.rebuild(el); updateStatusBar(); pushUndo(); };
 
   // Listen for gizmo drop
-  document.addEventListener('gizmo-drag-end', () => { if(selectTool?.selected) {try{bakeParametricScale(selectTool.selected);}catch(error){showToast(error.message,6000);}propsPanel.update(selectTool.selected);proController?.rebuildJoints(selectTool.selected);proController?.syncPlateBolts(selectTool.selected);} proController?.syncBoundWelds(); pushUndo(); });
+  document.addEventListener('gizmo-drag-end', () => pushUndo());
 
   wireRibbon();
   wireSidebar();
   wireHeader();
   header.onTutorialToggle = () => tutorialModule.show();
   wireCanvas();
-  document.addEventListener('workshop-exit-tool',()=>setTool('select'));
-  document.addEventListener('workshop-measurement-created',()=>pushUndo());
   wireKeyboard();
   wireCommandPalette();
   wireContextMenu();
@@ -124,8 +129,6 @@ function initApp(launchContext = {}) {
   proController = new ProWorkspaceController({
     sceneManager, propsPanel, sidebar, ribbon,
     getSelected: () => selectTool.selected,
-    getSelection: () => [...selectTool.selectedSet],
-    measureTool,
     selectObject: object => selectAndShow(object),
     pushUndo, toast: showToast, refresh: refreshWorkspace,
     getProjectName: () => _currentProjectName,
@@ -166,7 +169,7 @@ function initApp(launchContext = {}) {
     _appSettings = { ..._appSettings, ...launchContext.settings };
     document.documentElement.dataset.units = _appSettings.units || 'metric';
     document.documentElement.classList.toggle('reduced-motion', !!_appSettings.reducedMotion);
-    snapManager.gridSnap = Math.max(.0001, Number(_appSettings.snapPrecision || 1) / 1000);
+    snapManager.gridSnap = Math.max(.001, Number(_appSettings.snapPrecision || 10) / 1000);
     const useDark = _appSettings.interfaceTheme === 'system'
       ? window.matchMedia('(prefers-color-scheme: dark)').matches
       : _appSettings.interfaceTheme !== 'light';
@@ -180,14 +183,12 @@ function initApp(launchContext = {}) {
   // Disable legacy autosave state if it exists from older builds
   try { localStorage.removeItem('cometv:auto'); } catch (_) {}
 
-  console.log("ESTRUCTURAS PRO · Taller 7.0");
-  showToast('Taller listo · todas las medidas en mm', 2500);
-  if(import.meta.env.DEV) window.__workshop = {sceneManager,snapManager,selectTool,measureTool,weldTool,placementTool,proController,createProfile,createPlate,selectAndShow,undoAction,redoAction,serialize:_serializeScene,restore:_deserializeScene};
+  console.log('✦ ESTRUCTURAS PRO v6.0 — Código Estructural');
+  showToast('ESTRUCTURAS PRO listo', 2500);
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────
 function refreshWorkspace() {
-  sidebar.projectName = _currentProjectName;
   sidebar.refresh(sceneManager?.objects || []);
   sidebar.setActiveObject(selectTool?.selected?.id || null);
   updateStatusBar();
@@ -205,31 +206,69 @@ function selectAndShow(bimObj) {
   if (bimObj && bimObj.type !== 'weld') sceneManager.attachGizmo(bimObj.mesh);
   else sceneManager.detachGizmo();
   sidebar.setActiveObject(bimObj?.id || null);
-  proController?.updateSuggestion();
   updateStatusBar();
 }
 
 function createProfile(series, size, length, orientation) {
-  setTool('select'); placementTool.begin({ type:'profile',series,size,length,orientation });
+  const p = new Profile(series, size, length, orientation);
+  sceneManager.addObject(p);
+  selectAndShow(p);
+  pushUndo();
 }
-function createPlate(subtype, width=.3, height=.3, thickness=.02, points=null) {
-  setTool('select'); placementTool.begin({ type:'plate',subtype,width,height,thickness,points });
+
+function createPlate(subtype, w = 0.3, h = 0.3, t = 0.02, points = null) {
+  const p = new Plate(subtype, w, h, t);
+  if (points) p.params.points = points;
+  sceneManager.addObject(p);
+  selectAndShow(p);
+  pushUndo();
 }
-function createFastener(subtype, metric='M16') {
-  setTool('select'); placementTool.begin({ type:'fastener',subtype,metric });
+
+function createFastener(subtype, metric = 'M16') {
+  const metric_ = document.getElementById('global-metric-select')?.value || metric;
+  const f = new Fastener(subtype, metric_);
+  sceneManager.addObject(f);
+  selectAndShow(f);
+  // Auto-foco inmediato (Zoom in) para localizar piezas pequeñas
+  setTimeout(() => sceneManager.focusOnObject(f), 50); 
+  pushUndo();
 }
 
 function duplicateSelected() {
-  const sel=selectTool.selected;if(!sel)return;
-  const dup=_cloneBIM(sel);if(!dup)return;
-  const p=sel.getPosition();dup.setPosition(p.x+.3,p.y,p.z+.3);
-  sceneManager.addObject(dup);selectAndShow(dup);pushUndo();showToast('Pieza duplicada');
+  const sel = selectTool.selected;
+  if (!sel) return;
+  let dup;
+  if (sel.type === 'profile') {
+    dup = new Profile(sel.params.series, sel.params.size, sel.params.length, sel.params.orientation, sel.params);
+  } else if (sel.type === 'plate') {
+    dup = new Plate(sel.params.subtype, sel.params.width, sel.params.height, sel.params.thickness);
+    dup.update(sel.params);
+  } else if (sel.type === 'fastener') {
+    dup = new Fastener(sel.params.subtype, sel.params.metric, sel.params.shankLength);
+    dup.update(sel.params);
+  } else return;
+  const pos = sel.getPosition();
+  dup.setColor(sel.color);
+  dup.steelGrade = sel.steelGrade;
+  sceneManager.addObject(dup);
+  dup.mesh.quaternion.copy(sel.mesh.quaternion);
+  dup.mesh.scale.copy(sel.mesh.scale);
+  dup.setPosition(pos.x + 0.3, pos.y, pos.z + 0.3);
+  selectAndShow(dup);
+  pushUndo();
+  showToast(`Duplicado: ${dup.designation}`);
 }
+
 function deleteSelected() {
-  const targets=new Set(selectTool.selectedSet);if(!targets.size&&selectTool.selected)targets.add(selectTool.selected);
-  if(!targets.size)return;const ids=new Set([...targets].map(o=>o.id));
-  for(const o of sceneManager.objects)if(ids.has(o.params.hostPlateId)||ids.has(o.params.smartJointOwner)||ids.has(o.bindings?.a?.objectId)||ids.has(o.bindings?.b?.objectId))targets.add(o);
-  for(const o of targets)sceneManager.removeObject(o);selectTool.selectedSet.clear();selectTool.selected=null;propsPanel.update(null);updateMiniTransform(null);pushUndo();
+  if (!selectTool.selected) return;
+  const removed = selectTool.selected;
+  sceneManager.removeObject(removed);
+  loadManager?.rebuildAll();
+  selectTool.selectedSet.delete(removed);
+  selectTool.selected = null;
+  propsPanel.update(null);
+  updateMiniTransform(null);
+  pushUndo();
 }
 
 function isolateSelected() {
@@ -249,7 +288,6 @@ function showAll() {
 }
 
 function setTool(toolName) {
-  placementTool?.cancel();
   activeTool = toolName;
   measureTool.setActive(false);
   weldTool.setActive(false);
@@ -263,8 +301,6 @@ function setTool(toolName) {
     weld: 'Soldadura',
   };
 
-  sceneManager.detachGizmo();
-  if(['select','move','rotate','scale'].includes(toolName) && selectTool?.selected?.type!=='weld') sceneManager.attachGizmo(selectTool?.selected?.mesh);
   if (toolName === 'measure') { measureTool.setActive(true); }
   else if (toolName === 'weld') { weldTool.setActive(true); }
   else if (toolName === 'move') { sceneManager.setGizmoMode('translate'); }
@@ -283,7 +319,7 @@ function setVisualMode(mode) {
   sceneManager.setVisualMode(mode);
   ribbon.setActiveModeButton(mode);
   const badge = document.getElementById('viewport-mode-badge');
-  const labels = { clay:'COLOR PLANO', pbr:'COLOR PLANO', wire:'ARISTAS', xray:'TRANSPARENCIA' };
+  const labels = { clay:'TECHNICAL CLAY', pbr:'PBR REALISTIC', wire:'WIREFRAME', xray:'X-RAY' };
   if (badge) badge.textContent = labels[mode] || mode.toUpperCase();
   showToast(`Modo: ${labels[mode] || mode}`);
 }
@@ -343,12 +379,12 @@ function _wireStatusChips() {
 
 // ─── COORD READOUT ─────────────────────────────────────────────
 function updateCoordReadout(pos) {
-  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = (val*1000).toFixed(2); };
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val.toFixed(3); };
   set('cr-x', pos?.x || 0);
   set('cr-y', pos?.y || 0);
   set('cr-z', pos?.z || 0);
   const sbC = document.getElementById('sb-coords');
-  if (sbC && pos) sbC.textContent = `${(pos.x*1000).toFixed(2)} · ${(pos.y*1000).toFixed(2)} · ${(pos.z*1000).toFixed(2)} mm`;
+  if (sbC && pos) sbC.textContent = `${pos.x.toFixed(3)} · ${pos.y.toFixed(3)} · ${pos.z.toFixed(3)}`;
 }
 
 // ─── MINI TRANSFORM ────────────────────────────────────────────
@@ -480,8 +516,10 @@ function wireRibbon() {
   ribbon.on('measure-angle',() => { measureTool.setMode?.('angle');    setTool('measure'); });
   ribbon.on('measure-area', () => { measureTool.setMode?.('area');     setTool('measure'); });
   ribbon.on('open-custom-part', () => customPartEditor?.open());
-  ribbon.on('capture-png', () => captureTool?.open());
-  ribbon.on('show-all', showAll);
+  ribbon.on('open-render-studio', () => renderStudio?.open());
+  ribbon.on('add-load-point', () => loadManager?.openDialog(selectTool.selected, 'point'));
+  ribbon.on('add-load-distributed', () => loadManager?.openDialog(selectTool.selected, 'distributed'));
+  ribbon.on('add-load-moment', () => loadManager?.openDialog(selectTool.selected, 'moment'));
 
   // Edición
   ribbon.on('tool-select',  () => setTool('select'));
@@ -511,6 +549,7 @@ function wireRibbon() {
 
   // Modos visuales
   ribbon.on('mode-clay',  () => setVisualMode('clay'));
+  ribbon.on('mode-pbr',   () => setVisualMode('pbr'));
   ribbon.on('mode-wire',  () => setVisualMode('wire'));
   ribbon.on('mode-xray',  () => setVisualMode('xray'));
 
@@ -531,10 +570,6 @@ function wireSidebar() {
   sidebar.on('view-iso',  () => sceneManager.setCameraView('iso'));
   sidebar.on('view-top',  () => sceneManager.setCameraView('top'));
   sidebar.on('view-front',() => sceneManager.setCameraView('front'));
-  sidebar.on('view-back',() => sceneManager.setCameraView('back'));
-  sidebar.on('section-x',() => proController.toggleSection('x'));
-  sidebar.on('section-y',() => proController.toggleSection('y'));
-  sidebar.on('section-z',() => proController.toggleSection('z'));
   sidebar.on('view-left', () => sceneManager.setCameraView('left'));
   sidebar.on('view-right',() => sceneManager.setCameraView('right'));
   sidebar.on('select-object', id => {
@@ -559,10 +594,10 @@ function wireHeader() {
     if (!confirm('¿Crear nuevo proyecto? Se perderán los cambios no guardados.')) return;
     proController?.resetTransientState({ refresh: false });
     sceneManager.objects.slice().forEach(o => sceneManager.removeObject(o));
+    loadManager?.clear();
     selectTool.selectedSet.clear();
     selectTool.selected = null;
-    measureTool?.clearAll();
-    placementTool?.cancel();
+    proController?.visualizer.clear();
     propsPanel.update(null);
     updateMiniTransform(null);
     _currentProjectName = 'Sin título';
@@ -578,9 +613,7 @@ function wireHeader() {
 function wireCanvas() {
   const canvasEl = sceneManager.renderer.domElement;
 
-  let pendingPointer=null,pointerFrame=0;
-  canvasEl.addEventListener('mousemove', (event) => {
-    pendingPointer=event;if(pointerFrame)return;pointerFrame=requestAnimationFrame(()=>{pointerFrame=0;const e=pendingPointer;
+  canvasEl.addEventListener('mousemove', (e) => {
     const snapResult = snapManager.update(e);
     if (snapResult) {
       updateCoordReadout(snapResult);
@@ -607,7 +640,6 @@ function wireCanvas() {
     }
   });
 
-  });
   canvasEl.addEventListener('mouseleave', () => {
     sceneManager.clearHover();
     hideHoverTooltip();
@@ -617,21 +649,11 @@ function wireCanvas() {
   canvasEl.addEventListener('click', (e) => {
     if (e.button !== 0) return;
     if (sceneManager._isDragging || sceneManager._justFinishedDragging) return;
-    snapManager.update(e);
-    if (placementTool?.active) { placementTool.pick(e); return; }
     if (activeTool === 'measure') measureTool.handleClick(e);
     else if (activeTool === 'weld') weldTool.handleClick(e);
     else selectTool.handleClick(e);
   });
 
-  let down=null;
-  canvasEl.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};},true);
-  canvasEl.addEventListener('click',e=>{if(down && Math.hypot(e.clientX-down.x,e.clientY-down.y)>4){e.stopImmediatePropagation();}},true);
-  canvasEl.addEventListener('dblclick',e=>{
-    if(placementTool?.active||activeTool==='weld'||activeTool==='measure')return;
-    const hit=sceneManager.getBIMObjectAtMouse(e);
-    if(hit){selectAndShow(hit);sceneManager.orbitControls.target.copy(snapManager.update(e)||hit.getPosition());sceneManager.orbitControls.update();showToast('Centro de giro actualizado');}
-  });
   canvasEl.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     if (selectTool.selected) showContextMenu(e.clientX, e.clientY);
@@ -685,8 +707,7 @@ function wireContextMenu() {
 // ─── KEYBOARD ─────────────────────────────────────────────────
 function wireKeyboard() {
   window.addEventListener('keydown', (e) => {
-    if(e.key==='Escape' && placementTool?.active){placementTool.cancel();return;}
-    if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName) || placementTool?.active || document.querySelector('.workshop-modal, .part-editor-overlay')) return;
+    if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
 
     // Command palette
     if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
@@ -745,7 +766,8 @@ const COMMANDS = [
   { label: 'Vista isométrica',          icon: 'fa-cube',           action: () => sceneManager.setCameraView('iso'),  kbd:'1', group:'Cámara' },
   { label: 'Vista planta',              icon: 'fa-border-all',     action: () => sceneManager.setCameraView('top'),  kbd:'7', group:'Cámara' },
   { label: 'Vista frontal',             icon: 'fa-square',         action: () => sceneManager.setCameraView('front'),kbd:'3', group:'Cámara' },
-  { label: 'Color plano',       icon: 'fa-circle',         action: () => setVisualMode('clay'),                  group: 'Visualización' },
+  { label: 'Modo Technical Clay',       icon: 'fa-circle',         action: () => setVisualMode('clay'),                  group: 'Visualización' },
+  { label: 'Modo PBR Realista',         icon: 'fa-circle',         action: () => setVisualMode('pbr'),                   group: 'Visualización' },
   { label: 'Modo Wireframe',            icon: 'fa-circle',         action: () => setVisualMode('wire'),                  group: 'Visualización' },
   { label: 'Modo X-Ray',                icon: 'fa-circle',         action: () => setVisualMode('xray'),                  group: 'Visualización' },
   { label: 'Guardar proyecto',          icon: 'fa-floppy-disk',    action: saveProject,         kbd: 'Ctrl+S',           group: 'Archivo' },
@@ -774,7 +796,7 @@ function renderCommandResults(query) {
   );
 
   if (!filtered.length) {
-    results.innerHTML = `<div class="cp-empty">No hay comandos coincidentes.</div>`;
+    results.innerHTML = `<div class="cp-empty">Sin resultados para "${query}"</div>`;
     return;
   }
 
@@ -825,20 +847,20 @@ function wireCommandPalette() {
 // ─── UNDO / REDO ──────────────────────────────────────────────
 function captureState() {
   proController?.resetTransientState({ refresh: false });
-  return { objects: sceneManager.objects.map(serializeBIMObject), measurements: measureTool.serialize() };
+  return sceneManager.objects.map(serializeBIMObject);
 }
 
 function applyState(stateData) {
-  const restored = restoreProject(data, sceneManager);
   proController?.resetTransientState({ refresh: false });
   sceneManager.detachGizmo();
   selectTool.selectedSet.forEach(object => object.setSelected?.(false));
   selectTool.selectedSet.clear();
   selectTool.selected = null;
-  restoreProject(Array.isArray(stateData) ? { objects: stateData } : stateData, sceneManager);
+  restoreProject({ objects: Array.isArray(stateData) ? stateData : [] }, sceneManager);
+  loadManager?.rebuildAll();
   propsPanel.update(null);
   updateMiniTransform(null);
-  measureTool?.restore(stateData.measurements || []);
+  proController?.visualizer.clear();
   refreshWorkspace();
 }
 
@@ -871,11 +893,16 @@ function redoAction() {
 
 // ─── CLONE HELPER ──────────────────────────────────────────────
 function _cloneBIM(src) {
-  const state=serializeBIMObject(src);delete state.id;
-  for(const k of ['assemblyId','templateInstanceId','smartJoint','smartJoints','smartJointOwner','smartJointKey','boltGroup','boltGroupId','hostPlateId','hostLocal'])delete state.params[k];
-  if(state.weld){state.weld.bindings=null;state.weld.normalBindings=null;}
-  const dup=createBIMObjectFromState(state);if(!dup)return null;
-  dup.mesh.quaternion.copy(src.mesh.quaternion);dup.mesh.scale.copy(src.mesh.scale);return dup;
+  let dup;
+  if (src.type === 'profile') dup = new Profile(src.params.series, src.params.size, src.params.length, src.params.orientation, src.params);
+  else if (src.type === 'plate') { dup = new Plate(src.params.subtype, src.params.width, src.params.height, src.params.thickness); dup.update(src.params); }
+  else if (src.type === 'fastener') { dup = new Fastener(src.params.subtype, src.params.metric, src.params.shankLength); dup.update(src.params); }
+  else return null;
+  if (src.color) dup.setColor(src.color);
+  if (src.steelGrade) { dup.steelGrade = src.steelGrade; if (dup.type === 'profile') dup.update(dup.params); }
+  dup.mesh.quaternion.copy(src.mesh.quaternion);
+  dup.mesh.scale.copy(src.mesh.scale);
+  return dup;
 }
 
 // ─── ARRAY LINEAR ─────────────────────────────────────────────
@@ -884,13 +911,13 @@ async function arrayLinearSelected() {
   if (!sel) { showToast('Seleccione un elemento primero.', 2000); return; }
   const res = await openInputModal('Array Lineal', [
     { id:'count',   label:'Nº copias (2–20)', value:'4',  type:'number' },
-    { id:'sx',      label:'Separación X (mm)', value:'1000', type:'number' },
-    { id:'sy',      label:'Separación Y (mm)', value:'0', type:'number' },
-    { id:'sz',      label:'Separación Z (mm)', value:'0', type:'number' },
+    { id:'sx',      label:'Separación X (m)', value:'1.0', type:'number' },
+    { id:'sy',      label:'Separación Y (m)', value:'0.0', type:'number' },
+    { id:'sz',      label:'Separación Z (m)', value:'0.0', type:'number' },
   ]);
   if (!res) return;
   const count = Math.max(1, Math.min(20, parseInt(res.count) || 0));
-  const sx = (parseFloat(res.sx) || 0)/1000, sy = (parseFloat(res.sy) || 0)/1000, sz = (parseFloat(res.sz) || 0)/1000;
+  const sx = parseFloat(res.sx) || 0, sy = parseFloat(res.sy) || 0, sz = parseFloat(res.sz) || 0;
 
   const pos = sel.getPosition();
   for (let i = 1; i <= count; i++) {
@@ -910,7 +937,6 @@ async function arrayPolarSelected() {
     { id:'count', label:'Nº copias (2–36)', value:'6',   type:'number' },
     { id:'angle', label:'Ángulo total (°)', value:'360', type:'number' },
     { id:'axis',  label:'Eje (x/y/z)',      value:'y',   type:'text' },
-    ...['x','y','z'].map(a=>({id:'c'+a,label:'Centro '+a.toUpperCase()+' (mm)',value:'0',type:'number'})),
   ]);
   if (!res) return;
   const count = Math.max(2, Math.min(36, parseInt(res.count) || 0));
@@ -918,8 +944,7 @@ async function arrayPolarSelected() {
   const axis = (res.axis || 'y').toLowerCase();
   const step = (totalDeg * Math.PI / 180) / (totalDeg === 360 ? count : (count - 1 || 1));
 
-  const center = new THREE.Vector3(...[res.cx,res.cy,res.cz].map(v=>Number(v)/1000));
-  if(![center.x,center.y,center.z].every(Number.isFinite)||!['x','y','z'].includes(axis)){showToast('Centro o eje inválido');return;}
+  const center = sel.getPosition().clone();
   for (let i = 1; i < count; i++) {
     const dup = _cloneBIM(sel); if (!dup) continue;
     sceneManager.addObject(dup);
@@ -931,8 +956,6 @@ async function arrayPolarSelected() {
     if (axis === 'y')      { nx = center.x + dx * cos + dz * sin; nz = center.z - dx * sin + dz * cos; dup.mesh.rotation.y = (sel.mesh.rotation.y || 0) + a; }
     else if (axis === 'x') { ny = center.y + dy * cos - dz * sin; nz = center.z + dy * sin + dz * cos; dup.mesh.rotation.x = (sel.mesh.rotation.x || 0) + a; }
     else                   { nx = center.x + dx * cos - dy * sin; ny = center.y + dx * sin + dy * cos; dup.mesh.rotation.z = (sel.mesh.rotation.z || 0) + a; }
-    const axisVector=new THREE.Vector3(axis==='x'?1:0,axis==='y'?1:0,axis==='z'?1:0);
-    dup.mesh.quaternion.copy(sel.mesh.quaternion).premultiply(new THREE.Quaternion().setFromAxisAngle(axisVector,a));
     dup.setPosition(nx, ny, nz);
   }
   showToast(`${count} copias polares (${totalDeg}° · eje ${axis.toUpperCase()})`);
@@ -956,7 +979,7 @@ function alignSelected(axis) {
     o.setPosition(nx, ny, nz);
     o.mesh.updateMatrixWorld(true);
   });
-  showToast(`Alineados ${pool.length} objetos en ${axis.toUpperCase()} = ${(target*1000).toFixed(2)} mm`);
+  showToast(`Alineados ${pool.length} objetos en ${axis.toUpperCase()} = ${target.toFixed(3)}m`);
   pushUndo();
 }
 
@@ -1006,7 +1029,7 @@ function _serializeScene() {
   proController?.resetTransientState({ refresh: false });
   return serializeProject(sceneManager.objects, {
     project: _currentProjectName,
-    settings: { units:'mm' }, measurements: measureTool?.serialize() || [],
+    settings: { units: document.documentElement.dataset.units || 'metric' },
   });
 }
 
@@ -1019,8 +1042,9 @@ function _deserializeScene(data) {
   selectTool.selected = null;
   propsPanel.update(null);
   updateMiniTransform(null);
-  measureTool?.clearAll();
-  measureTool?.restore(data.measurements || []);
+  proController?.visualizer.clear();
+  const restored = restoreProject(data, sceneManager);
+  loadManager?.rebuildAll();
   if (data.project) {
     _currentProjectName = data.project;
     const nameInput = document.getElementById('project-name-input');

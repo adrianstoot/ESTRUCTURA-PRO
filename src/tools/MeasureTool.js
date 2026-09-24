@@ -46,7 +46,7 @@ export class MeasureTool {
   }
 
   _bindKeys(e) {
-    if (!this.active || e.target?.closest?.('input,textarea,select,[role="dialog"]')) return;
+    if (!this.active) return;
     // Enter closes the polygon in area mode
     if (e.key === 'Enter' && this.mode === 'area' && this._points.length >= 3) {
       this._commitArea();
@@ -61,7 +61,7 @@ export class MeasureTool {
 
   handleClick(event) {
     if (!this.active) return;
-    const snapPt = this.snapManager.update(event) || this.snapManager.getSnapPoint();
+    const snapPt = this.snapManager.getSnapPoint();
     if (!snapPt) return;
 
     if (this.mode === 'angle') {
@@ -125,7 +125,7 @@ export class MeasureTool {
         const A = this._polygonArea([...this._points, snapPt]);
         const perim = this._polygonPerimeter([...this._points, snapPt, this._points[0]]);
         const center = this._polygonCentroid([...this._points, snapPt]);
-        this._tempLabel = this._createLabelDiv(`A=${(A*1e6).toFixed(1)} mm² · P=${(perim*1000).toFixed(1)} mm  [Enter=cerrar]`, center, true);
+        this._tempLabel = this._createLabelDiv(`A=${A.toFixed(3)} m² · P=${perim.toFixed(2)} m  [Enter=cerrar]`, center, true);
       }
       return;
     }
@@ -138,13 +138,9 @@ export class MeasureTool {
 
     const distance = this.pointA.distanceTo(snapPt);
     const mid = new THREE.Vector3().addVectors(this.pointA, snapPt).multiplyScalar(0.5);
-    this._tempLabel = this._createLabelDiv(this._distanceText(this.pointA,snapPt), mid, true);
+    this._tempLabel = this._createLabelDiv(`${(distance * 100).toFixed(1)} cm`, mid, true);
   }
 
-  _distanceText(a,b){const d=b.clone().sub(a);return 'D '+(d.length()*1000).toFixed(2)+' mm\nΔX '+(d.x*1000).toFixed(2)+' · ΔY '+(d.y*1000).toFixed(2)+' · ΔZ '+(d.z*1000).toFixed(2)+' mm';}
-  serialize(){return this.measurements.map(m=>({type:m.type,points:(m.points||[m.a,m.b]).map(p=>p.toArray())}));}
-  restore(data=[]){this._restoring=true;this.clearAll();for(const m of data){const pts=m.points.map(p=>new THREE.Vector3(...p));if(m.type==='angle')this._createAngleMeasurement(...pts);else if(m.type==='area'){this._points=pts;this._commitArea();}else this._createMeasurement(...pts);}this._restoring=false;}
-  clearAll(){for(const m of this.measurements){for(const key of ['line','ma','mb','arc']){const o=m[key];if(o){this.sceneManager.scene.remove(o);o.geometry?.dispose();o.material?.dispose();}}m.label?.remove();}this.measurements=[];this.pointA=null;this._points=[];this._removeTempLine();this._removeTempLabel();this._removeTempArea();}
   _mkDashedLine(pts) {
     const geo = new THREE.BufferGeometry().setFromPoints(pts);
     const mat = new THREE.LineDashedMaterial({
@@ -171,23 +167,22 @@ export class MeasureTool {
     this.sceneManager.scene.add(line);
 
     // Endpoint markers (small spheres)
-    const markerGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3()]);
-    const markerMat = new THREE.PointsMaterial({ color: 0x197d9d, size: 5, sizeAttenuation:false, depthTest:false });
-    const ma = new THREE.Points(markerGeo, markerMat);
+    const markerGeo = new THREE.SphereGeometry(0.02, 8, 8);
+    const markerMat = new THREE.MeshBasicMaterial({ color: 0xeab308, depthTest: false });
+    const ma = new THREE.Mesh(markerGeo, markerMat);
     ma.position.copy(a);
     ma.renderOrder = 901;
     this.sceneManager.scene.add(ma);
-    const mb = new THREE.Points(markerGeo.clone(), markerMat.clone());
+    const mb = new THREE.Mesh(markerGeo.clone(), markerMat.clone());
     mb.position.copy(b);
     mb.renderOrder = 901;
     this.sceneManager.scene.add(mb);
 
     // Label
     const mid = new THREE.Vector3().addVectors(a, b).multiplyScalar(0.5);
-    const label = this._createLabelDiv(this._distanceText(a,b), mid, false);
+    const label = this._createLabelDiv(`${distCm} cm (${distM} m)`, mid, false);
 
-    this.measurements.push({ type:'distance', line, ma, mb, label, a: a.clone(), b: b.clone(), dist });
-    if(!this._restoring) document.dispatchEvent(new Event('workshop-measurement-created'));
+    this.measurements.push({ line, ma, mb, label, a: a.clone(), b: b.clone(), dist });
   }
 
   _createLabelDiv(text, position, isTemp) {
@@ -218,13 +213,12 @@ export class MeasureTool {
 
     const updatePos = () => {
       if (!div.parentElement) return;
-      const projected = position.clone().project(this.sceneManager.camera);
+      const projected = position.clone().project(cam);
       const rect = renderer.domElement.getBoundingClientRect();
       const x = (projected.x + 1) / 2 * rect.width;
       const y = (-projected.y + 1) / 2 * rect.height;
-      div.hidden = projected.z < -1 || projected.z > 1;
-      div.style.left = x + 'px';
-      div.style.top = (y - 24) + 'px';
+      div.style.left = (x + rect.left) + 'px';
+      div.style.top = (y + rect.top - 20) + 'px';
       requestAnimationFrame(updatePos);
     };
     updatePos();
@@ -265,7 +259,6 @@ export class MeasureTool {
   }
 
   _createAngleMeasurement(a, b, c) {
-    if(a.distanceTo(b)<1e-6||c.distanceTo(b)<1e-6)return;
     const angle = this._angleDeg(a, b, c);
 
     // segments a-b, b-c
@@ -296,8 +289,7 @@ export class MeasureTool {
     this.sceneManager.scene.add(arc);
 
     const label = this._createLabelDiv(`${angle.toFixed(2)} °`, b.clone().addScaledVector(new THREE.Vector3().copy(v1).add(v2).normalize(), r * 1.3), false);
-    this.measurements.push({ type: 'angle', line: segLine, arc, label, angle, points:[a,b,c].map(p=>p.clone()) });
-    if(!this._restoring) document.dispatchEvent(new Event('workshop-measurement-created'));
+    this.measurements.push({ type: 'angle', line: segLine, arc, label, angle });
   }
 
   // ─── Area ─────────────────────────────────────────────────────
@@ -328,9 +320,6 @@ export class MeasureTool {
 
   _commitArea() {
     if (this._points.length < 3) return;
-    const normal=new THREE.Vector3();for(let i=1;i<this._points.length-1;i++)normal.add(new THREE.Vector3().subVectors(this._points[i],this._points[0]).cross(new THREE.Vector3().subVectors(this._points[i+1],this._points[0])));
-    if(normal.length()<1e-10)return;normal.normalize();
-    if(this._points.some(p=>Math.abs(p.clone().sub(this._points[0]).dot(normal))>.0001)){this._removeTempLabel();this._tempLabel=this._createLabelDiv('Contorno no plano: seleccione puntos de una misma cara.',this._points[0],true);return;}
     const pts = [...this._points, this._points[0]];
     const geo = new THREE.BufferGeometry().setFromPoints(pts);
     const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xeab308, depthTest: false }));
@@ -340,10 +329,9 @@ export class MeasureTool {
     const A = this._polygonArea(this._points);
     const P = this._polygonPerimeter(pts);
     const center = this._polygonCentroid(this._points);
-    const label = this._createLabelDiv(`A = ${(A*1e6).toFixed(1)} mm² · P = ${(P*1000).toFixed(1)} mm`, center, false);
+    const label = this._createLabelDiv(`A = ${A.toFixed(3)} m² · P = ${P.toFixed(2)} m`, center, false);
 
-    this.measurements.push({ type: 'area', line, label, area: A, perim: P, points:this._points.map(p=>p.clone()) });
-    if(!this._restoring) document.dispatchEvent(new Event('workshop-measurement-created'));
+    this.measurements.push({ type: 'area', line, label, area: A, perim: P });
     this._points = [];
     this.snapManager.setReferencePoint(null);
     this._removeTempLine();

@@ -1,18 +1,17 @@
 {
   "name": "estructuras-pro",
   "private": true,
-  "version": "7.0.0",
+  "version": "6.0.0",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
-    "dev": "vite --configLoader native",
-    "build": "vite build --configLoader native",
-    "build:desktop": "vite build --configLoader native --base=./",
-    "preview": "vite preview --configLoader native",
+    "dev": "vite",
+    "build": "vite build",
+    "build:desktop": "vite build --base=./",
+    "preview": "vite preview",
     "desktop": "npm run build:desktop && electron .",
     "dist:win": "npm run build:desktop && electron-builder --win nsis",
-    "deploy": "npm run build && gh-pages -d dist",
-    "test": "node tests/workshop.test.js"
+    "deploy": "vite build && gh-pages -d dist"
   },
   "devDependencies": {
     "electron": "^43.2.0",

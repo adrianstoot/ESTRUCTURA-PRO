@@ -21,7 +21,7 @@ export class Header {
         <div class="header-logo">${brandLogo(30)}</div>
         <div>
           <div class="header-title">ESTRUCTURAS <span>PRO</span></div>
-          <div class="header-subtitle">TALLER DE MONTAJE · mm</div>
+          <div class="header-subtitle">STEEL DESIGN · CÓDIGO ESTRUCTURAL</div>
         </div>
       </div>
 

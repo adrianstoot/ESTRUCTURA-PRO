@@ -1,4 +1,3 @@
-import { validatePolygon } from '../core/WorkshopGeometry.js';
 import { Plate } from '../entities/Plate.js';
 
 const TYPES = [
@@ -81,17 +80,15 @@ export class CustomPartEditor {
             <label>Nombre<input name="name" value="Rigidizador personalizado" maxlength="60"></label>
             <h3>Geometría y acabado</h3>
             <label>Espesor (mm)<input name="thickness" type="number" min="2" max="100" step="1" value="12"></label>
-            <label>Snap (mm)<select name="snap"><option>0.1</option><option selected>1</option><option>5</option><option>10</option><option>25</option><option>50</option></select></label>
-            <h3>Vértices exactos (X, Y en mm)</h3><textarea name="vertices" aria-label="Vértices en milímetros" placeholder="-100, -100
-100, -100
-100, 100
--100, 100"></textarea><button type="button" data-vertices>Aplicar coordenadas</button><p data-error role="alert"></p>
+            <label>Snap (mm)<select name="snap"><option>5</option><option selected>10</option><option>25</option><option>50</option></select></label>
+            <label>Bisel (mm)<input name="bevel" type="number" min="0" max="20" step="1" value="2"></label>
+            <label>Radio esquinas (mm)<input name="radius" type="number" min="0" max="100" step="1" value="0"></label>
             <h3>Material</h3>
             <label>Acero<select name="grade">${GRADES.map((grade) => `<option>${grade}</option>`).join('')}</select></label>
             <label>Color<input name="color" type="color" value="#586672"></label>
             <div class="part-editor__stats">
               <div class="part-editor__stat"><b data-points>0</b><span>VÉRTICES</span></div>
-              <div class="part-editor__stat"><b data-area>0 mm²</b><span>ÁREA</span></div>
+              <div class="part-editor__stat"><b data-area>0 cm²</b><span>ÁREA</span></div>
               <div class="part-editor__stat"><b data-width>0 mm</b><span>ANCHO</span></div>
               <div class="part-editor__stat"><b data-height>0 mm</b><span>ALTO</span></div>
             </div>
@@ -127,7 +124,7 @@ export class CustomPartEditor {
       const rect = canvas.getBoundingClientRect();
       let px = ((x - rect.left) / rect.width - 0.5) * extentMm.width;
       let py = (0.5 - (y - rect.top) / rect.height) * extentMm.height;
-      const snap = Math.max(.1, Number(read('snap').value) || 1);
+      const snap = Math.max(1, Number(read('snap').value) || 10);
       px = Math.round(px / snap) * snap;
       py = Math.round(py / snap) * snap;
       if (event?.shiftKey && points.length) {
@@ -197,7 +194,7 @@ export class CustomPartEditor {
       overlay.querySelector('[data-points]').textContent = points.length;
       overlay.querySelector('[data-width]').textContent = `${box.width.toFixed(0)} mm`;
       overlay.querySelector('[data-height]').textContent = `${box.height.toFixed(0)} mm`;
-      overlay.querySelector('[data-area]').textContent = `${polygonArea(points).toFixed(1)} mm²`;
+      overlay.querySelector('[data-area]').textContent = `${(polygonArea(points) / 100).toFixed(1)} cm²`;
       overlay.querySelector('[data-create]').disabled = !(closed && points.length >= 3 && polygonArea(points) > 10);
       overlay.querySelector('[data-status]').textContent = closed
         ? 'Contorno cerrado. Revise dimensiones y cree la pieza.'
@@ -235,7 +232,6 @@ export class CustomPartEditor {
       event.preventDefault();
       closePolygon();
     });
-    overlay.querySelector('[data-vertices]').onclick=()=>{try{const parsed=validatePolygon(read('vertices').value.trim().split(/\n+/).map(line=>line.trim().split(/[;,\s]+/).map(Number)));points.splice(0,points.length,...parsed);closed=true;overlay.querySelector('[data-error]').textContent='';draw();}catch(error){overlay.querySelector('[data-error]').textContent=error.message;}};
     read('snap').addEventListener('change', () => draw());
     overlay.querySelector('[data-undo]').addEventListener('click', () => {
       if (closed) closed = false;
@@ -272,23 +268,23 @@ export class CustomPartEditor {
         x: (point.x - box.minX - box.width / 2) / 1000,
         y: (point.y - box.minY - box.height / 2) / 1000,
       }));
-      const thickness = Number(read('thickness').value) / 1000;
-      if(!Number.isFinite(thickness)||thickness<=0){overlay.querySelector('[data-error]').textContent='Introduzca un espesor positivo.';return;}
-      const plate = new Plate('gusset-custom', box.width / 1000, box.height / 1000, thickness);
+      const thickness = Math.max(0.002, Number(read('thickness').value) / 1000);
+      const plate = new Plate('gusset-custom', Math.max(0.01, box.width / 1000), Math.max(0.01, box.height / 1000), thickness);
       plate.update({
         points: centered,
         role: read('role').value,
         customName: read('name').value.trim() || 'Pieza personalizada',
         materialStandard: 'Código Estructural · EN 10025-2',
-        category: /stiffener/.test(read('role').value) ? 'stiffener' : 'plate',
+        edgeBevel: Math.max(0, Number(read('bevel').value) / 1000),
+        cornerRadius: Math.max(0, Number(read('radius').value) / 1000),
       });
       plate.designation = read('name').value.trim() || plate.designation;
       plate.steelGrade = read('grade').value;
       plate.setColor(read('color').value);
       plate._applyUserData?.();
-
+      this.sceneManager.addObject(plate);
       this.onCreate(plate);
-      this.toast(`Pieza preparada · ${box.width.toFixed(0)}×${box.height.toFixed(0)}×${(thickness * 1000).toFixed(0)} mm`);
+      this.toast(`Pieza creada · ${box.width.toFixed(0)}×${box.height.toFixed(0)}×${(thickness * 1000).toFixed(0)} mm`);
       close();
     });
     draw();
