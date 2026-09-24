@@ -837,6 +837,9 @@ html:root[data-theme="light"] #sidebar .model-search input::-webkit-input-placeh
 .render-studio button { height:32px !important; padding:0 14px !important; border:1px solid #c7cecc !important; border-radius:7px !important; background:#fffefa !important; color:#38464e !important; font-size:11px !important; }
 .render-studio button:hover { border-color:#76a2b8 !important; background:#f0f6f6 !important; color:#284756 !important; }
 .render-studio button.primary { border-color:#347ba7 !important; background:#397fab !important; color:#fff !important; }
+.render-studio a[data-render-export] { display:inline-flex; align-items:center; justify-content:center; height:32px; padding:0 14px; border:1px solid #347ba7; border-radius:7px; background:#397fab; color:#fff; font:600 11px Inter,"Segoe UI",sans-serif; text-decoration:none; cursor:pointer; }
+.render-studio a[data-render-export]:hover { border-color:#27678f; background:#2f719e; }
+.render-studio a[data-render-export].is-disabled { opacity:.48; cursor:default; pointer-events:none; }
 @media(max-width:760px){.render-studio__panel{width:100vw!important;height:100dvh!important;border-radius:0!important}.render-studio footer{flex-wrap:wrap;height:auto;padding:9px}.render-studio footer div{width:100%;justify-content:flex-end}}
 
 /* Restore the original compact editor ribbon while keeping the requested tools. */

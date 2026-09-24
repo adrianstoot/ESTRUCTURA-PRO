@@ -36,19 +36,14 @@ export class RenderStudio {
     image.src = this.previewUrl;
     image.hidden = false;
     this.host.querySelector('[data-render-placeholder]').hidden = true;
+    const exportLink = this.host.querySelector('[data-render-export]');
+    exportLink.href = this.previewUrl;
+    exportLink.download = 'ESTRUCTURAS-PRO-toma.png';
+    exportLink.classList.remove('is-disabled');
+    exportLink.removeAttribute('aria-disabled');
+    exportLink.removeAttribute('tabindex');
     this._status('Toma capturada desde la vista actual.');
     return blob;
-  }
-
-  async exportPNG() {
-    if (!this.lastBlob) await this.capture();
-    const url = URL.createObjectURL(this.lastBlob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = 'ESTRUCTURAS-PRO-toma.png';
-    anchor.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1500);
-    this._status('Imagen exportada.');
   }
 
   _ensureDOM() {
@@ -64,17 +59,24 @@ export class RenderStudio {
             <div data-render-placeholder>La imagen capturada aparecerá aquí.</div>
             <img data-render-preview alt="Toma capturada de la vista actual" hidden>
           </div>
-          <footer><span data-render-status>Lista para capturar.</span><div><button type="button" data-action="capture">Capturar toma</button><button type="button" class="primary" data-action="export">Exportar imagen</button></div></footer>
+          <footer><span data-render-status>Lista para capturar.</span><div><button type="button" data-action="capture">Capturar toma</button><a class="primary is-disabled" data-render-export role="button" aria-label="Exportar imagen" aria-disabled="true" tabindex="-1">Exportar imagen</a></div></footer>
         </section>
       </div>`;
     document.body.appendChild(this.host);
+    this.host.querySelector('[data-render-export]').addEventListener('click', event => {
+      if (!this.lastBlob) {
+        event.preventDefault();
+        this.capture().catch(error => this._status(error.message));
+        return;
+      }
+      this._status('Descarga de la toma iniciada.');
+    });
     this.host.addEventListener('click', event => {
       const target = event.target.closest('button,[data-action="backdrop"]');
       if (!target) return;
       const action = target.dataset.action;
       if (action === 'close' || (action === 'backdrop' && event.target === target)) this.close();
       if (action === 'capture') this.capture().catch(error => this._status(error.message));
-      if (action === 'export') this.exportPNG().catch(error => this._status(error.message));
     });
     this.host.addEventListener('keydown', event => { if (event.key === 'Escape') this.close(); });
   }
