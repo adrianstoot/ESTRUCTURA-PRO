@@ -10,8 +10,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <script type="module" crossorigin src="./assets/index-DyV90Nx4.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-BISJlacd.css">
+  <script type="module" crossorigin src="./assets/index-CfWcFCHq.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BCpg4rXA.css">
 </head>
 <body>
   <!-- COMMAND PALETTE -->
@@ -66,9 +66,6 @@
       <!-- VIEW CUBE 3D -->
       <div id="view-cube">
         <canvas id="nav-cube-canvas" width="192" height="192" title="Cubo de navegación 3D"></canvas>
-        <button id="nav-cube-home" title="Fit All (Home)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1z"/></svg>
-        </button>
         <div id="nav-cube-gnomon">X · Y · Z</div>
       </div>
 
@@ -82,9 +79,6 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg>
         </button>
       </div>
-
-      <!-- VIEWPORT OVERLAYS -->
-      <div id="viewport-mode-badge">TECHNICAL CLAY</div>
 
       <!-- MINI TRANSFORM WIDGET (shown on selection) -->
       <div id="mini-transform" class="hidden">
@@ -143,59 +137,104 @@
     </div>
   </div>
 
-  <!-- MÓDULO DIDÁCTICO ETSIE -->
+  <!-- AULA VIRTUAL · contenido didáctico independiente del editor -->
   <div id="tut-overlay" class="hidden">
     <div id="tut-modal" class="glass-panel">
       <div class="tut-header">
-        <div class="tut-title">
-          <i class="fa-solid fa-graduation-cap"></i>
-          <div><h3 style="margin:0; font-size:14px;">Aula de montaje ETSIE</h3><span style="font-size:10px; opacity:0.7;">Taller didáctico · Uniones y fabricación</span></div>
-        </div>
-        <button id="tut-close-btn"><i class="fa-solid fa-xmark"></i></button>
+        <div class="tut-title"><i class="fa-solid fa-graduation-cap"></i><div><h3 style="margin:0;font-size:14px;">Aula virtual · Estructuras metálicas</h3><span style="font-size:10px;opacity:.7;">Teoría, prontuario, práctica y material visual</span></div></div>
+        <button id="tut-close-btn" aria-label="Cerrar aula"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="tut-body">
-        <div class="tut-sidebar">
-          <button class="tut-tab active" data-tab="tut-theory"><i class="fa-solid fa-book-open"></i> Teoría</button>
-          <button class="tut-tab" data-tab="tut-tables"><i class="fa-solid fa-table"></i> Prontuario</button>
-          <button class="tut-tab" data-tab="tut-quiz"><i class="fa-solid fa-pen-to-square"></i> Tests</button>
-          <div class="tut-progress-container">
-            <span class="tut-prog-title">Tu Progreso</span>
-            <div class="tut-prog-bar"><div id="tut-prog-fill" style="width: 0%"></div></div>
-            <span id="tut-score">0% completado</span>
-          </div>
-        </div>
+        <nav class="tut-sidebar" aria-label="Secciones del aula">
+          <button class="tut-tab active" data-tab="tut-theory"><i class="fa-solid fa-book-open"></i><span>Teoría</span></button>
+          <button class="tut-tab" data-tab="tut-tables"><i class="fa-solid fa-table"></i><span>Prontuario</span></button>
+          <button class="tut-tab" data-tab="tut-practice"><i class="fa-solid fa-helmet-safety"></i><span>Práctica guiada</span></button>
+          <button class="tut-tab" data-tab="tut-notes"><i class="fa-solid fa-file-lines"></i><span>Apuntes</span></button>
+          <button class="tut-tab" data-tab="tut-gallery"><i class="fa-solid fa-images"></i><span>Galería</span></button>
+          <button class="tut-tab" data-tab="tut-quiz"><i class="fa-solid fa-pen-to-square"></i><span>Cuestionario v6</span><b class="tut-tab-count">21</b></button>
+          <div class="tut-progress-container"><span class="tut-prog-title">Progreso del test</span><div class="tut-prog-bar"><div id="tut-prog-fill" style="width:0%"></div></div><span id="tut-score">0 / 21 puntos</span></div>
+        </nav>
         <div class="tut-content">
           <div id="tut-theory" class="tut-pane active">
-            <h2>Secuencia básica de montaje</h2>
-            <p>Un montaje claro comienza con piezas identificadas, cotas en milímetros y planos ortográficos. Presenta los perfiles en su posición, alinea los taladros y comprueba aplomado, nivel y holguras antes del apriete final.</p>
-            <ol class="tut-workflow-list">
-              <li><b>Preparar:</b> revisar marcas, longitudes, espesores y orientación de cada perfil.</li>
-              <li><b>Presentar:</b> colocar pilares, vigas y chapas con apoyos y medios auxiliares adecuados.</li>
-              <li><b>Alinear:</b> comprobar ejes, diagonales, nivel y aplomado en las vistas ortográficas.</li>
-              <li><b>Unir:</b> colocar pernos, arandelas y tuercas; ejecutar las soldaduras según el detalle.</li>
-              <li><b>Verificar:</b> revisar encaje, holguras, rigidizadores, cartelas y acabado.</li>
-            </ol>
-            <p class="tut-note">Las dimensiones y los detalles de fabricación siempre deben seguir los planos aprobados y las especificaciones aplicables.</p>
+            <div class="tut-page-heading"><div><span class="tut-eyebrow">AULA · TEORÍA</span><h2>Comportamiento y detalle de estructuras metálicas</h2><p>Conceptos esenciales y referencias de montaje del material del curso.</p></div><img src="./aula-icons/theory-book.png" alt="" loading="lazy"></div>
+            <div class="tut-topic-grid">
+              <article class="tut-topic-card"><span class="tut-topic-index">01</span><h3>Esquema estructural</h3><p>Distingue entramados articulados, vigas continuas y pórticos rígidos. La idealización del nudo condiciona cómo se transmiten el momento y el giro.</p><div class="tut-tag-row"><span>Articulado</span><span>Continuo</span><span>Rígido</span></div></article>
+              <article class="tut-topic-card"><span class="tut-topic-index">02</span><h3>Clasificación de secciones</h3><p>Las clases 1–4 describen la influencia del pandeo local. En clase 4 se emplean propiedades eficaces; clasifica con la geometría y el acero del perfil.</p><div class="tut-formula tut-formula-compact">ε = √(235 / f<sub>y</sub>)</div></article>
+              <article class="tut-topic-card"><span class="tut-topic-index">03</span><h3>Pandeo de barras</h3><p>La longitud de pandeo, los apoyos y el eje considerado afectan a la carga crítica. Comprueba por separado los dos ejes principales.</p><div class="tut-formula tut-formula-compact">N<sub>cr</sub> = π² E I / L<sub>cr</sub>²</div></article>
+              <article class="tut-topic-card"><span class="tut-topic-index">04</span><h3>Vuelco lateral</h3><p>En vigas flectadas puede combinarse el desplazamiento lateral del ala comprimida con la torsión de la sección. Revisa arriostramientos y longitud sin sujetar.</p><div class="tut-tag-row"><span>Flexión</span><span>Torsión</span><span>Arriostramiento</span></div></article>
+              <article class="tut-topic-card"><span class="tut-topic-index">05</span><h3>Uniones y tornillos</h3><p>El detalle define transferencia, agujeros y elementos de unión. El prontuario resume la resistencia de tornillos a cortante.</p><div class="tut-formula tut-formula-compact">F<sub>v,Rd</sub> = α<sub>v</sub> f<sub>ub</sub> A / γ<sub>M2</sub></div></article>
+              <article class="tut-topic-card"><span class="tut-topic-index">06</span><h3>Estabilidad y juntas</h3><p>Dispón arriostramientos en direcciones y planos adecuados. Las juntas de dilatación separan cuerpos para admitir los movimientos del proyecto.</p><div class="tut-tag-row"><span>Arriostramientos</span><span>Dilatación</span></div></article>
+            </div>
+            <p class="tut-note"><b>Recorrido:</b> consulta las tablas, desarrolla la práctica guiada y contrasta las uniones con tus planos.</p>
+            <details class="tut-original-questions" open><summary>Cuestiones originales · Cuaderno de práctica n.º 3</summary><ol>
+              <li>Vigas aligeradas: tipos y ventajas frente a vigas de alma llena de la misma serie y peso.</li>
+              <li>Principios de las vigas de celosía indeformables y aplicación a una cercha Polonceau compuesta.</li>
+              <li>Tipos de nudos en pórticos simples de dintel quebrado. Acompaña con ejemplos gráficos.</li>
+              <li>Apoyo indirecto en vigas: cuándo se utiliza y resolución en muro de hormigón de 250 mm con IPE 360.</li>
+              <li>Forjados compuestos: elementos, comportamiento y ejemplo con todos sus componentes.</li>
+              <li>Viga mixta: trabajo de cada elemento, función y posición de los conectadores.</li>
+              <li>Organización de barras y nudos en una cercha indeformable; detalle de una cercha tipo inglés.</li>
+              <li>Unión de un pórtico a la cimentación: tipologías y ejemplos gráficos.</li>
+              <li>Diferencias entre soporte mixto y perfil HEB relleno de hormigón.</li>
+              <li>Apoyo articulado y empotrado en estructura mixta; solución de nudos intermedios del entramado.</li>
+            </ol></details>
           </div>
           <div id="tut-tables" class="tut-pane hidden">
-            <h2>Comprobaciones de taller</h2>
-            <table class="tut-table tut-workshop-table" style="width:100%;text-align:left;font-size:11px;border-collapse:collapse;">
-              <tr><th>Elemento</th><th>Qué revisar</th><th>Unidad</th></tr>
-              <tr><td>Perfil</td><td>Serie, longitud, orientación y extremos</td><td>mm</td></tr>
-              <tr><td>Chapa</td><td>Ancho, alto, espesor y contorno</td><td>mm</td></tr>
-              <tr><td>Taladro</td><td>Diámetro, separación y distancia al borde</td><td>mm</td></tr>
-              <tr><td>Unión</td><td>Alineación, apoyo, holgura y accesibilidad</td><td>mm</td></tr>
-              <tr><td>Soldadura</td><td>Longitud y garganta indicadas en el detalle</td><td>mm</td></tr>
-            </table>
+            <div class="tut-page-heading"><div><span class="tut-eyebrow">CONSULTA RÁPIDA</span><h2>Prontuario y tablas</h2><p>Valores de referencia recuperados del material v6.</p></div><img src="./aula-icons/tables-data.png" alt="" loading="lazy"></div>
+            <h3 class="tut-section-title">Tornillería métrica</h3>
+            <div class="tut-table-wrap"><table class="tut-table tut-reference-table"><thead><tr><th>Métrica</th><th>Área resistente A<sub>s</sub></th><th>Agujero d<sub>0</sub></th></tr></thead><tbody><tr><td>M12</td><td>84,3 mm²</td><td>13 mm</td></tr><tr><td>M16</td><td>157 mm²</td><td>18 mm</td></tr><tr><td>M20</td><td>245 mm²</td><td>22 mm</td></tr><tr><td>M24</td><td>353 mm²</td><td>26 mm</td></tr><tr><td>M30</td><td>561 mm²</td><td>33 mm</td></tr></tbody></table></div>
+            <p class="tut-table-caption">Confirma métrica, clase y agujero con el detalle de unión del proyecto.</p>
+            <h3 class="tut-section-title">Lectura del detalle de taller</h3>
+            <div class="tut-table-wrap"><table class="tut-table tut-reference-table"><thead><tr><th>Elemento</th><th>Datos que debes localizar</th><th>Unidad</th></tr></thead><tbody><tr><td>Perfil</td><td>Serie, tamaño, longitud, orientación y clase de sección</td><td>mm</td></tr><tr><td>Chapa / cartela</td><td>Contorno, dimensiones, espesor y posición</td><td>mm</td></tr><tr><td>Tornillos</td><td>Métrica, clase, patrón, distancias y agujero</td><td>mm</td></tr><tr><td>Soldadura</td><td>Tipo, longitud y garganta indicadas en el plano</td><td>mm</td></tr><tr><td>Apoyo / junta</td><td>Tipo de apoyo, holgura y dirección de movimiento</td><td>mm</td></tr></tbody></table></div>
+            <div class="tut-formula tut-formula-compact">F<sub>v,Rd</sub> = (α<sub>v</sub> · f<sub>ub</sub> · A) / γ<sub>M2</sub></div>
+            <h3 class="tut-section-title">Tablas de perfiles recuperadas del documento original</h3>
+            <p class="tut-table-caption">Hojas escaneadas incorporadas desde «FOTOGRAFIAS AULA VIRTUAL.doc». Pulsa una para leerla ampliada.</p>
+            <div id="tut-profile-table-grid" class="tut-reference-grid" aria-live="polite"></div>
+          </div>
+          <div id="tut-practice" class="tut-pane hidden">
+            <div class="tut-page-heading"><div><span class="tut-eyebrow">CUADERNO DE PRÁCTICA N.º 3 · PARTE 2</span><h2>Cercha Polonceau compuesta</h2><p>Enunciado, alzado y datos de taller recuperados del material que has cargado.</p></div><img src="./aula-icons/structural-practice.png" alt="" loading="lazy"></div>
+            <div class="tut-practice-layout"><button class="tut-practice-photo" type="button" data-gallery-image="practice-plan"><img id="tut-practice-reference" alt="Alzado de la práctica: cercha Polonceau compuesta, apoyos y nudos numerados" loading="lazy"><span><i class="fa-solid fa-magnifying-glass-plus"></i> Ampliar plano original</span></button><div class="tut-practice-brief"><span class="tut-status-pill">EJERCICIO DE TALLER · ENTREGA EN A3</span><h3>Desarrollo de la cercha y sus nudos</h3><ol><li>Define gráficamente la ejecución completa y calcula la altura máxima según la pendiente del par.</li><li>Dispón 5 correas por faldón, cada una coincidente con un nudo.</li><li>Resuelve 4 nudos representativos, distintos de los apoyos y asignados por el profesor.</li><li>Dibuja planta y alzado, con despiece de todos los elementos y la transmisión de compresiones.</li></ol></div></div>
+            <h3 class="tut-section-title">Datos de partida del enunciado</h3>
+            <div class="tut-table-wrap"><table class="tut-table tut-reference-table"><thead><tr><th>Elemento</th><th>Perfil / solución</th><th>Dato</th></tr></thead><tbody><tr><td>Cordones comprimidos</td><td>2L 140 × 13</td><td>Acero laminado</td></tr><tr><td>Cordones traccionados</td><td>2L 90 × 8</td><td>Acero laminado</td></tr><tr><td>Relleno a compresión</td><td>2L 80 × 8</td><td>Acero laminado</td></tr><tr><td>Relleno a tracción</td><td>1L 60 × 6</td><td>Acero laminado</td></tr><tr><td>Nudos</td><td>Cartelas y unión soldada</td><td>Cartela 10 mm · llantas 10 mm</td></tr><tr><td>Placas de base y capitel</td><td>Acero</td><td>22 mm</td></tr><tr><td>Correas</td><td>IPE 180</td><td>5 por faldón · una en cada nudo</td></tr></tbody></table></div>
+            <div class="tut-practice-inputs tut-practice-answers"><label>Apoyo izquierdo <select id="tut-practice-left"><option value="">Selecciona…</option><option value="movil">Móvil</option><option value="fijo">Fijo</option></select></label><label>Apoyo derecho <select id="tut-practice-right"><option value="">Selecciona…</option><option value="movil">Móvil</option><option value="fijo">Fijo</option></select></label><label>Tipo de cercha <select id="tut-practice-type"><option value="">Selecciona…</option><option value="polonceau">Polonceau compuesta</option><option value="pratt">Pratt</option><option value="warren">Warren</option><option value="belga">Belga</option></select></label></div>
+            <div class="tut-practice-inputs tut-practice-answers"><label>Correas por faldón <span><input id="tut-practice-purlins" type="number" min="0" step="1" placeholder="Según enunciado"><em>uds.</em></span></label><label>Nudo a desarrollar 1 <input id="tut-practice-node-1" type="text" placeholder="N.º del plano"></label><label>Nudo a desarrollar 2 <input id="tut-practice-node-2" type="text" placeholder="N.º del plano"></label><label>Nudo a desarrollar 3 <input id="tut-practice-node-3" type="text" placeholder="N.º del plano"></label><label>Nudo a desarrollar 4 <input id="tut-practice-node-4" type="text" placeholder="N.º del plano"></label></div>
+            <fieldset id="tut-practice-checklist" class="tut-practice-checklist"><legend>Entrega y revisión</legend><label><input type="checkbox" data-practice-check="nodes"> He desarrollado los 4 nudos que me han asignado</label><label><input type="checkbox" data-practice-check="gussets"> He detallado cartelas y llantas con los espesores indicados</label><label><input type="checkbox" data-practice-check="welding"> He dibujado y definido los nexos soldados</label><label><input type="checkbox" data-practice-check="drawings"> He comprobado planta, alzado, cotas y despiece en mm</label></fieldset>
+            <details class="tut-practice-secondary"><summary>Práctica complementaria · pórtico, pilar mixto y forjado compuesto</summary>
+              <p>Parte 3 del cuaderno original. La nave plantea luces de 6 m entre pórticos y cerchas, 72 m de longitud total y una zona de oficinas de 18 m.</p>
+              <div class="tut-table-wrap"><table class="tut-table tut-reference-table"><thead><tr><th>Conjunto</th><th>Datos conservados en el enunciado</th></tr></thead><tbody>
+                <tr><td>Pilar mixto</td><td>Perfil HEB 220; placa de base 350 × 350 × 22 mm; 4 pernos Ø20. Pilar de hormigón armado 500 × 500 mm con 12 barras Ø16.</td></tr>
+                <tr><td>Armadura transversal y conectadores</td><td>Cercos Ø8 cada 200 mm, atados a la armadura longitudinal. Conectadores en cercos Ø8 cada 200 mm, alternados y soldados al perfil.</td></tr>
+                <tr><td>Pórtico de dintel quebrado</td><td>Vigas Void obtenidas de IPE 180; refuerzos en nudos con IPE 180; rigidizadores de 10 mm; uniones soldadas.</td></tr>
+                <tr><td>Cimentación</td><td>Zapatas aisladas de 1500 × 1500 × 700 mm; parrilla en dos direcciones con Ø16 cada 200 mm.</td></tr>
+                <tr><td>Forjado compuesto</td><td>Brochal IPE 270; chapa galvanizada de 80 mm; nervaduras cada 300 mm; luz máxima 3100 mm; canto total 200 mm; hormigón H-30; conectores soldados según detalle.</td></tr>
+              </tbody></table></div>
+              <p>La entrega original se realiza en formato DIN A3, con nombre, grupo y fecha. Los detalles se dibujan en planta y alzado, con despiece y solución de las compresiones entre soportes.</p>
+            </details>
+            <div class="tut-practice-actions"><button id="tut-practice-verify" class="tut-action-primary" type="button"><i class="fa-solid fa-check"></i> Comprobar práctica</button><span id="tut-practice-feedback" role="status">El progreso se guarda en este navegador.</span></div>
+          </div>
+          <div id="tut-notes" class="tut-pane hidden">
+            <div class="tut-page-heading"><div><span class="tut-eyebrow">APUNTES DE CLASE</span><h2>Tipologías, estabilidad y montaje</h2><p>Resumen de consulta de los temas estructurales del material v6.</p></div><img src="./aula-icons/technical-drawings.png" alt="" loading="lazy"></div>
+            <div class="tut-notes-list">
+              <details open><summary>Esquemas estructurales</summary><p><b>Isostático:</b> las reacciones se obtienen con las ecuaciones de equilibrio. <b>Viga continua:</b> la continuidad modifica la distribución de esfuerzos y giros. <b>Pórtico rígido:</b> los nudos transmiten momento y contribuyen a la estabilidad.</p></details>
+              <details><summary>Clasificación y pandeo</summary><p>Clasifica las secciones antes de elegir propiedades resistentes. En barras comprimidas, registra longitud de cálculo, eje de pandeo y condiciones de apoyo; comprueba ambos ejes.</p><div class="tut-formula tut-formula-compact">N<sub>b,Rd</sub> = χ · A · f<sub>y</sub> / γ<sub>M1</sub></div></details>
+              <details><summary>Uniones articuladas y rígidas</summary><p>Un nudo articulado permite el giro previsto y transmite las acciones asignadas al detalle. Un nudo rígido limita el giro relativo; revisa continuidad de alas, alma, chapas, soldaduras y rigidizadores.</p></details>
+              <details><summary>Estabilidad horizontal</summary><p>Dispón arriostramiento en más de una dirección y en planos triangulados adecuados. Comprueba su continuidad hasta los apoyos y los nudos de conexión.</p></details>
+              <details><summary>Juntas de dilatación</summary><p>La junta separa cuerpos para admitir movimientos. Revisa si la solución duplica pilares o vigas, dónde está el apoyo deslizante y qué elementos deben permanecer separados.</p></details>
+              <details><summary>Secuencia de montaje</summary><p>Prepara y marca piezas; presenta los elementos; alinea ejes y niveles; ejecuta las uniones conforme al detalle; verifica aplomado, holguras y acabado.</p></details>
+            </div>
+            <p class="tut-note">Las dimensiones y la solución final se toman de los planos y especificaciones del proyecto.</p>
+          </div>
+          <div id="tut-gallery" class="tut-pane hidden">
+            <div class="tut-page-heading"><div><span class="tut-eyebrow">PARTE 4 · DOCUMENTO ORIGINAL</span><h2>Fotografías del Aula Virtual v6</h2><p>Galería recuperada del documento cargado, ordenada según sus pies de foto. Selecciona una para ampliarla.</p></div><img src="./aula-icons/gallery-examples.png" alt="" loading="lazy"></div>
+            <div id="tut-gallery-grid" class="tut-gallery-grid" aria-live="polite"></div>
           </div>
           <div id="tut-quiz" class="tut-pane hidden">
-            <h2 id="q-title">Pregunta 1</h2>
-            <p id="q-text" class="q-question-text">Cargando...</p>
-            <div id="q-options"></div>
-            <div id="q-feedback"></div>
+            <div class="tut-page-heading"><div><span class="tut-eyebrow">BANCO ORIGINAL DE LA VERSIÓN 6 · 21 PREGUNTAS</span><h2 id="q-title">Pregunta 1</h2><p id="q-text">Selecciona Cuestionario v6 para empezar.</p></div><img src="./aula-icons/exam-quiz.png" alt="" loading="lazy"></div>
+            <div id="q-options" class="tut-quiz-options"></div><div id="q-feedback" class="tut-quiz-feedback" role="status"></div>
           </div>
         </div>
       </div>
+      <div id="tut-lightbox" class="hidden" role="dialog" aria-modal="true" aria-label="Imagen de referencia ampliada"><button id="tut-lightbox-close" type="button" aria-label="Cerrar imagen"><i class="fa-solid fa-xmark"></i></button><img id="tut-lightbox-image" alt=""><p id="tut-lightbox-caption"></p></div>
     </div>
   </div>
 
