@@ -232,9 +232,6 @@ export class SceneManager {
   // ─── VISUAL MODES ────────────────────────────────────────────
   setVisualMode(mode) {
     this._visualMode = mode;
-    const badge = document.getElementById('viewport-mode-badge');
-    const labels = { clay: 'TECHNICAL CLAY', pbr: 'PBR REALISTIC', wire: 'WIREFRAME', xray: 'X-RAY' };
-    if (badge) badge.textContent = labels[mode] || mode.toUpperCase();
     this.objects.forEach(obj => this._applyVisualModeToObject(obj));
   }
 

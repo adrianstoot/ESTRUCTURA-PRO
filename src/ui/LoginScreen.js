@@ -5,7 +5,7 @@ const SETTINGS_KEY = 'estructuras-pro:settings:v1';
 const DEFAULT_SETTINGS = Object.freeze({
   units: 'metric',
   interfaceTheme: 'light',
-  themePreferenceVersion: 2,
+  themePreferenceVersion: 3,
   snapPrecision: '1',
   autosave: true,
   reducedMotion: false,
@@ -28,7 +28,7 @@ export class LoginScreen {
     overlay.id = 'login-overlay';
     overlay.className = 'ep0-overlay';
     overlay.dataset.reducedMotion = String(this.settings.reducedMotion);
-    const splashImage = new URL(`${import.meta.env.BASE_URL}login-hero-bg.png`, window.location.href).href;
+    const splashImage = new URL(`${import.meta.env.BASE_URL}login-loose-profiles-bg-v2.png`, window.location.href).href;
     overlay.style.setProperty('--ep0-splash-image', `url("${splashImage}")`);
     overlay.innerHTML = `
       <div class="ep0-background" aria-hidden="true"></div>
@@ -47,7 +47,7 @@ export class LoginScreen {
           <header class="ep0-brand">
             <div class="ep0-logo">${brandLogo(156)}</div>
             <h1 id="ep0-title"><span>ESTRUCTURAS</span> <strong>PRO</strong></h1>
-            <p>Diseño, análisis y detallado<br>de estructuras metálicas</p>
+            <p>DISEÑO DE NUDOS Y ESTRUCTURAS METÁLICAS</p>
           </header>
 
           <nav class="ep0-launch-actions" aria-label="Inicio de proyecto">
@@ -79,7 +79,7 @@ export class LoginScreen {
             </div>
             <div class="ep0-login-error" id="ep0-error" role="alert" aria-live="assertive"></div>
             <button type="submit" class="ep0-login-submit" id="ep0-submit"><span>Iniciar sesión</span></button>
-            <button type="button" class="ep0-recovery-link" id="ep0-recover">¿Olvidaste tu contraseña?</button>
+            <button type="button" class="ep0-guest-submit" id="ep0-guest">Entrar como invitado</button>
           </form>
         </section>
 
@@ -134,7 +134,6 @@ export class LoginScreen {
       if (file) this._loadProject(file);
     });
     q('#ep0-settings').addEventListener('click', () => this._openDialog('settings'));
-    q('#ep0-recover').addEventListener('click', () => this._openDialog('recover'));
     q('#ep0-help').addEventListener('click', () => this._openDialog('help'));
     q('#ep0-about').addEventListener('click', () => this._openDialog('about'));
     q('#ep0-dialog-close').addEventListener('click', () => this._closeDialog());
@@ -161,6 +160,7 @@ export class LoginScreen {
       event.preventDefault();
       this._login(q('#ep0-user'), password);
     });
+    q('#ep0-guest').addEventListener('click', () => this._enterAsGuest());
     q('#ep0-minimize').addEventListener('click', () => this._toggleMinimize());
     q('#ep0-close-app').addEventListener('click', () => this._closeApp());
     q('#ep0-restore-closed').addEventListener('click', () => this._restore());
@@ -245,10 +245,25 @@ export class LoginScreen {
     }
 
     const user = userInput.value.trim() || 'Ingeniero';
-    const submit = this.overlay.querySelector('#ep0-submit');
-    submit.disabled = true;
-    submit.querySelector('span').textContent = 'Preparando el editor…';
     const context = { ...this.launchContext, settings: { ...this.settings } };
+    this._completeEntry(user, context);
+  }
+
+  _enterAsGuest() {
+    const button = this.overlay.querySelector('#ep0-guest');
+    if (!button || button.disabled) return;
+    const context = { ...this.launchContext, access: 'guest', settings: { ...this.settings } };
+    this._completeEntry('Invitado', context);
+  }
+
+  _completeEntry(user, context) {
+    const controls = this.overlay.querySelectorAll('#ep0-submit, #ep0-guest');
+    controls.forEach((button) => {
+      button.disabled = true;
+      const label = button.querySelector('span');
+      if (label) label.textContent = 'Preparando el editor…';
+      else button.textContent = 'Preparando el editor…';
+    });
     this.overlay.classList.add('ep0-exit');
     window.setTimeout(() => {
       this.overlay?.remove();
@@ -264,22 +279,11 @@ export class LoginScreen {
     this.lastFocus = document.activeElement;
 
     const content = {
-      recover: {
-        title: 'Recuperar acceso',
-        html: `<p>Introduce el correo asociado a tu licencia.</p>
-          <form class="ep0-dialog-form" id="ep0-recovery-form">
-            <label for="ep0-email">Correo electrónico</label>
-            <input id="ep0-email" type="email" autocomplete="email" required placeholder="ingenieria@empresa.com">
-            <p class="ep0-dialog-note">Modo demostración: usa la clave <strong>4444</strong>.</p>
-            <div class="ep0-dialog-status" id="ep0-recovery-status" role="status" aria-live="polite"></div>
-            <div class="ep0-dialog-actions"><button type="button" class="ep0-btn-secondary" data-dialog-close>Cancelar</button><button type="submit" class="ep0-btn-primary">Enviar instrucciones</button></div>
-          </form>`,
-      },
       help: {
         title: 'Ayuda',
         html: `<div class="ep0-info-block"><h3>Primeros pasos</h3><ol>
           <li>Elige Nuevo proyecto o carga un archivo JSON.</li>
-          <li>Introduce tu usuario y la clave de acceso.</li>
+          <li>Inicia sesión o entra como invitado.</li>
           <li>Configura unidades y guardado desde Ajustes.</li>
           </ol><p>Atajos: <kbd>Ctrl</kbd> + <kbd>S</kbd> para guardar y <kbd>Ctrl</kbd> + <kbd>K</kbd> para comandos.</p></div>
           <div class="ep0-dialog-actions"><button type="button" class="ep0-btn-primary" data-dialog-close>Entendido</button></div>`,
@@ -316,7 +320,7 @@ export class LoginScreen {
         this.settings = {
           units: String(data.get('units') || 'metric'),
           interfaceTheme: String(data.get('interfaceTheme') || 'light'),
-          themePreferenceVersion: 2,
+          themePreferenceVersion: 3,
           snapPrecision: String(data.get('snapPrecision') || '10'),
           autosave: data.get('autosave') === 'on',
           reducedMotion: data.get('reducedMotion') === 'on',
@@ -335,16 +339,6 @@ export class LoginScreen {
       });
     }
 
-    if (kind === 'recover') {
-      backdrop.querySelector('#ep0-recovery-form').addEventListener('submit', (event) => {
-        event.preventDefault();
-        const email = backdrop.querySelector('#ep0-email');
-        if (!email.checkValidity()) return email.reportValidity();
-        backdrop.querySelector('#ep0-recovery-status').textContent =
-          'Solicitud preparada. Revisa tu correo para continuar.';
-        event.currentTarget.querySelector('[type="submit"]').disabled = true;
-      });
-    }
   }
 
   _settingsHtml() {
@@ -387,10 +381,10 @@ export class LoginScreen {
     try {
       const value = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
       const settings = { ...DEFAULT_SETTINGS, ...(value && typeof value === 'object' ? value : {}), units: 'metric' };
-      // Existing installs inherited dark as the old default; migrate those once to the new day theme.
-      if (Number(value?.themePreferenceVersion || 0) < 2) {
+      // Migrate existing installs once so the editor starts in the day theme by default.
+      if (Number(value?.themePreferenceVersion || 0) < 3) {
         settings.interfaceTheme = 'light';
-        settings.themePreferenceVersion = 2;
+        settings.themePreferenceVersion = 3;
       }
       // 10 mm was the old factory default; migrate it to the new 1 mm workshop default.
       if (settings.snapPrecision === '10') settings.snapPrecision = '1';

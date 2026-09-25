@@ -330,20 +330,30 @@
   opacity: 0.74;
 }
 
-.ep0-recovery-link {
-  margin-top: 17px;
-  padding: 6px 10px;
-  border: 0;
-  background: transparent;
+.ep0-guest-submit {
+  width: 100%;
+  min-height: 48px;
+  display: grid;
+  place-items: center;
+  margin-top: 10px;
+  border: 1px solid var(--ep0-line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.46);
   color: var(--ep0-muted);
   font: inherit;
   font-size: 14px;
   cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
-.ep0-recovery-link:hover {
-  color: #fff;
+.ep0-guest-submit:hover {
+  border-color: var(--ep0-line-strong);
+  background: rgba(255, 255, 255, 0.84);
+  color: var(--ep0-text);
 }
+
+.ep0-guest-submit:active { transform: translateY(1px); }
+.ep0-guest-submit:disabled { cursor: wait; opacity: 0.72; }
 
 .ep0-footer-links {
   position: fixed;
@@ -767,7 +777,7 @@
 
 .ep0-launch-card:focus-visible,
 .ep0-login-submit:focus-visible,
-.ep0-recovery-link:focus-visible,
+.ep0-guest-submit:focus-visible,
 .ep0-footer-links button:focus-visible,
 .ep0-window-btn:focus-visible,
 .ep0-modal button:focus-visible,
@@ -833,7 +843,7 @@
   .ep0-field { height: 49px; }
   .ep0-login-error { min-height: 23px; padding-top: 4px; }
   .ep0-login-submit { min-height: 48px; font-size: 16px; }
-  .ep0-recovery-link { margin-top: 8px; }
+  .ep0-guest-submit { min-height: 44px; }
   .ep0-footer-links { bottom: 18px; }
 }
 
@@ -951,7 +961,7 @@
 .ep0-field input { color:#26343b; }
 .ep0-field input::placeholder { color:#77848a; }
 .ep0-field input[aria-invalid="true"] { color:#a83d37; }
-.ep0-password-toggle:hover,.ep0-recovery-link:hover,.ep0-footer-links button:hover { color:#245d7d; }
+.ep0-password-toggle:hover,.ep0-footer-links button:hover { color:#245d7d; }
 .ep0-login-submit {
   border-color:#347da8;
   border-radius:9px;
@@ -998,11 +1008,12 @@
 }
 
 #login-overlay .ep0-background::before {
-  inset: 0;
+  inset: -8px;
   width: 100%;
   background: var(--ep0-splash-image) center right / cover no-repeat;
   opacity: 1;
-  filter: none;
+  filter: blur(0.9px) saturate(0.62) brightness(1.04);
+  transform: scale(1.015);
   mask-image: none;
   -webkit-mask-image: none;
 }
@@ -1192,7 +1203,6 @@
 }
 
 #login-overlay .ep0-password-toggle:hover,
-#login-overlay .ep0-recovery-link:hover,
 #login-overlay .ep0-footer-links button:hover {
   color: var(--ep0-blue-strong);
 }
@@ -1217,12 +1227,23 @@
   box-shadow: 0 9px 21px rgba(44, 99, 137, 0.2);
 }
 
-#login-overlay .ep0-recovery-link {
-  display: block;
-  margin: 10px auto 0;
-  color: #68747b;
-  font-size: 12px;
+#login-overlay .ep0-guest-submit {
+  min-height: 46px;
+  margin-top: 10px;
+  border-color: rgba(57, 69, 76, 0.18);
+  background: rgba(255, 255, 255, 0.64);
+  color: #56646c;
+  font-size: 13px;
+  font-weight: 550;
 }
+
+#login-overlay .ep0-guest-submit:hover {
+  border-color: rgba(39, 117, 180, 0.4);
+  background: rgba(255, 255, 255, 0.94);
+  color: #29343c;
+}
+
+#login-overlay .ep0-guest-submit:disabled { opacity: 0.72; }
 
 #login-overlay .ep0-footer-links {
   right: clamp(24px, 4vw, 60px);

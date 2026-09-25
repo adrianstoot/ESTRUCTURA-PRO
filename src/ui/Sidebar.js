@@ -42,11 +42,6 @@ export class Sidebar {
         <header class="model-browser__header"><span>NAVEGADOR DEL MODELO</span><button type="button" data-action="collapse-browser" title="Contraer">‹</button></header>
         <label class="model-search">${icon('search', 13)}<input type="search" id="model-search-input" placeholder="Buscar en el modelo…" autocomplete="off"></label>
         <div id="model-tree" class="model-tree"></div>
-        <div class="connection-browser">
-          <div class="connection-browser__title"><span>NAVEGADOR DE CONEXIONES</span><b id="connection-count">0</b></div>
-          <div id="connection-tree" class="connection-tree"><span class="tree-empty">Sin conjuntos insertados</span></div>
-        </div>
-        <footer class="model-browser__tabs"><button class="active" type="button">NAVEGADOR</button><button type="button" data-action="open-structure-tab">ESTRUCTURA</button></footer>
       </section>`;
 
     this.el.querySelectorAll('.sb-tool[data-action]').forEach(button => {
@@ -56,7 +51,6 @@ export class Sidebar {
       document.documentElement.classList.toggle('model-browser-collapsed');
       requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
     });
-    this.el.querySelector('[data-action="open-structure-tab"]')?.addEventListener('click', () => this._emit('open-structure-tab'));
     this.el.querySelector('#model-search-input')?.addEventListener('input', event => this.refresh(this._objects, event.target.value));
     this.refresh([]);
   }
@@ -124,20 +118,6 @@ export class Sidebar {
       this._emit(button.dataset.treeView);
     }));
 
-    const assemblies = new Map();
-    this._objects.forEach(object => {
-      const id = object.params?.assemblyId || object.params?.templateInstanceId;
-      if (!id) return;
-      if (!assemblies.has(id)) assemblies.set(id, []);
-      assemblies.get(id).push(object);
-    });
-    const connectionTree = this.el.querySelector('#connection-tree');
-    const count = this.el.querySelector('#connection-count');
-    if (count) count.textContent = String(assemblies.size);
-    if (connectionTree) connectionTree.innerHTML = assemblies.size
-      ? [...assemblies.entries()].map(([id, items]) => `<button type="button" data-assembly-id="${id}"><span class="assembly-thumb">${icon('plate', 16)}</span><span><b>${items[0]?.params?.templateId || 'Conjunto estructural'}</b><small>${items.length} componentes</small></span></button>`).join('')
-      : '<span class="tree-empty">Sin conjuntos insertados</span>';
-    connectionTree?.querySelectorAll('[data-assembly-id]').forEach(button => button.addEventListener('click', () => this._emit('select-object', assemblies.get(button.dataset.assemblyId)?.[0]?.id)));
   }
 
   setActiveObject(id) {

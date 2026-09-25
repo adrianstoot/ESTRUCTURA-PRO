@@ -2,7 +2,7 @@ import { icon } from './icons.js';
 
 const ASSET_BASE = import.meta.env.BASE_URL || '/';
 
-/** Compact, image-led workshop ribbon. Keeps the familiar editor layout and groups every tool in one strip. */
+/** Icon-first workshop ribbon with top-level tool classifiers. */
 export class Ribbon {
   constructor(ribbonElement) {
     this.ribbon = ribbonElement;
@@ -16,7 +16,7 @@ export class Ribbon {
   _render() {
     const groups = [
       {
-        id: 'profiles', category: 'PERFILES', title: 'Perfiles', items: [
+        id: 'profiles', category: 'PERFILES', title: 'Perfiles', className: 'ribbon-group-profiles', items: [
           ['tool-select', 'select', 'Modificar', 'Seleccionar y editar elementos'],
           ['add-heb-col', 'heb', 'HEB', 'Crear pilar HEB 200 · 1000 mm'],
           ['add-ipe', 'ipe', 'IPE', 'Crear viga IPE 200 · 1000 mm'],
@@ -27,12 +27,12 @@ export class Ribbon {
         ],
       },
       {
-        id: 'floors', category: 'FORJADOS', title: 'Chapas', items: [
+        id: 'floors', category: 'CHAPAS', title: 'Chapas', className: 'ribbon-group-floors', items: [
           ['add-plate', 'plate', 'Chapa', 'Crear una chapa estructural'],
         ],
       },
       {
-        id: 'connections', category: 'UNIONES', title: 'Uniones', items: [
+        id: 'connections', category: 'UNIONES', title: 'Uniones', className: 'ribbon-group-connections', items: [
           ['add-baseplate', 'baseplate', 'Placa base', 'Crear placa base'],
           ['add-gusset-tri', 'gusset-tri', 'Cartela', 'Crear cartela triangular'],
           ['add-gusset-sq', 'gusset-sq', 'Cartela rect.', 'Crear cartela rectangular'],
@@ -43,7 +43,7 @@ export class Ribbon {
         ],
       },
       {
-        id: 'custom-part', category: 'CREAR PIEZA', title: 'Pieza personalizada', className: 'ribbon-group-custom-piece', items: [
+        id: 'custom-part', category: 'PIEZA PERSONALIZADA', title: 'Personal', className: 'ribbon-group-custom-piece', items: [
           ['open-custom-part', 'custom-part', 'Pieza libre', 'Dibujar una pieza sobre el plano y extruirla'],
         ],
       },
@@ -53,20 +53,20 @@ export class Ribbon {
         ],
       },
       {
-        id: 'styles', category: 'COMPLEMENTOS', title: 'Estilos', className: 'ribbon-group-style', items: [
+        id: 'styles', category: 'ESTILOS', title: 'Estilos', className: 'ribbon-group-style', items: [
           ['mode-pbr', 'material-pbr', 'Realismo', 'Vista realista del acero'],
           ['mode-clay', 'material-clay', 'Básico', 'Color plano de taller'],
         ],
       },
       {
-        id: 'extensions', category: 'COMPLEMENTOS', title: 'Extensiones', items: [
+        id: 'extensions', category: 'HERRAMIENTAS', title: 'Herramientas', className: 'ribbon-group-tools', items: [
           ['open-render-studio', 'render-camera', 'Render', 'Capturar la vista actual y exportarla como imagen'],
           ['open-tutorial', 'aula', 'Aula ETSIE', 'Abrir el aula y el cuestionario constructivo'],
           ['preset-connections', 'connection', 'Nudos', 'Abrir las plantillas de nudos'],
         ],
       },
       {
-        id: 'views', category: 'COMPLEMENTOS', title: 'Vistas', items: [
+        id: 'views', category: 'VISTAS', title: 'Vistas', className: 'ribbon-group-views', items: [
           ['view-iso', 'view-iso', '3D', 'Vista isométrica'],
           ['view-top', 'view-top', 'Planta', 'Vista ortográfica en planta'],
           ['view-front', 'view-front', 'Alzado', 'Vista ortográfica de alzado'],
@@ -74,7 +74,7 @@ export class Ribbon {
         ],
       },
       {
-        id: 'measurements', category: 'COMPLEMENTOS', title: 'Medición y entrega', items: [
+        id: 'measurements', category: 'MEDICIÓN', title: 'Medición', className: 'ribbon-group-measurements', items: [
           ['measure-dist', 'ruler', 'Distancia', 'Medir distancia y diferencias en milímetros'],
           ['measure-angle', 'angle', 'Ángulo', 'Medir ángulo'],
           ['measure-area', 'area', 'Área', 'Medir área'],
@@ -84,25 +84,46 @@ export class Ribbon {
       },
     ];
 
-    const categories = ['PERFILES', 'FORJADOS', 'UNIONES', 'CREAR PIEZA', 'COMPLEMENTOS'];
+    const categories = [
+      ['TODOS', 'Todos'],
+      ['PERFILES', 'Perfiles'],
+      ['UNIONES', 'Uniones'],
+      ['HERRAMIENTAS', 'Herramientas'],
+      ['VISTAS', 'Vistas'],
+      ['ESTILOS', 'Estilos'],
+    ];
+    const categoryGroups = {
+      PERFILES: ['PERFILES', 'CHAPAS'],
+      UNIONES: ['UNIONES', 'PIEZA PERSONALIZADA'],
+      HERRAMIENTAS: ['HERRAMIENTAS', 'MEDICIÓN'],
+      VISTAS: ['VISTAS'],
+      ESTILOS: ['ESTILOS'],
+    };
+
     this.ribbon.innerHTML = `
-      <nav class="ribbon-category-bar" aria-label="Categorías de herramientas">
-        ${categories.map((name, index) => `<button type="button" class="ribbon-category-tab${index === 0 ? ' active' : ''}" data-ribbon-category="${name}">${name}</button>`).join('')}
+      <nav class="ribbon-category-bar" aria-label="Clasificar herramientas">
+        ${categories.map(([key, label], index) => `<button type="button" class="ribbon-category-tab${index === 0 ? ' active' : ''}" data-ribbon-category="${key}" aria-pressed="${index === 0}">${label}</button>`).join('')}
       </nav>
       <div class="ribbon-content ribbon-workshop-content">
         <div class="ribbon-panel ribbon-workshop-panel" data-panel="edicion" role="toolbar" aria-label="Herramientas de estructuras">
-          ${groups.map(group => `<section id="ribbon-group-${group.id}" class="ribbon-group-box ${group.className || ''}" data-ribbon-group="${group.category}">
+          ${groups.map(group => `<section id="ribbon-group-${group.id}" class="ribbon-group-box ${group.className || ''}" data-ribbon-group="${group.category}" aria-label="${group.title}">
             <div class="ribbon-group-buttons">${group.items.map(([action, image, label, title]) => this._rasterButton(action, image, label, title)).join('')}</div>
-            <div class="ribbon-group-title">${group.title}</div>
           </section>`).join('')}
         </div>
       </div>`;
 
     this.ribbon.querySelectorAll('.ribbon-category-tab').forEach(button => button.addEventListener('click', () => {
-      this.ribbon.querySelectorAll('.ribbon-category-tab').forEach(tab => tab.classList.toggle('active', tab === button));
-      const group = this.ribbon.querySelector(`[data-ribbon-group="${button.dataset.ribbonCategory}"]`);
-      const viewport = this.ribbon.querySelector('.ribbon-workshop-content');
-      if (group && viewport) viewport.scrollTo({ left: group.offsetLeft - 8, behavior: 'smooth' });
+      const category = button.dataset.ribbonCategory;
+      const includedGroups = category === 'TODOS' ? null : categoryGroups[category] || [];
+      this.ribbon.querySelectorAll('.ribbon-category-tab').forEach(tab => {
+        const active = tab === button;
+        tab.classList.toggle('active', active);
+        tab.setAttribute('aria-pressed', String(active));
+      });
+      this.ribbon.querySelectorAll('.ribbon-group-box').forEach(group => {
+        group.classList.toggle('ribbon-group-filtered', includedGroups !== null && !includedGroups.includes(group.dataset.ribbonGroup));
+      });
+      this.ribbon.querySelector('.ribbon-workshop-content')?.scrollTo({ left: 0, behavior: 'smooth' });
     }));
 
     this.ribbon.querySelectorAll('.ribbon-btn').forEach(button => button.addEventListener('click', () => {
@@ -118,7 +139,8 @@ export class Ribbon {
 
   _rasterButton(action, asset, label, title = '') {
     const src = `${ASSET_BASE}ui-icons/${asset}.png`;
-    return `<button type="button" class="ribbon-btn" data-action="${action}" title="${title || label}" aria-label="${label}">
+    const tooltip = title && title !== label ? `${label} · ${title}` : label;
+    return `<button type="button" class="ribbon-btn" data-action="${action}" title="${tooltip}" aria-label="${label}">
       <span class="ribbon-icon-frame"><img class="ribbon-raster-icon" src="${src}" alt="" draggable="false"></span>
       <span>${label}</span>
     </button>`;

@@ -10,6 +10,10 @@ const TYPES = [
   ['connection-plate', 'Chapa de unión'],
 ];
 const GRADES = ['S235JR', 'S275JR', 'S355JR', 'S355J2', 'S460M'];
+const ORTHO_VIEWS = [
+  ['top', 'Planta'], ['front', 'Alzado frontal'], ['right', 'Alzado lateral derecho'],
+  ['left', 'Alzado lateral izquierdo'], ['back', 'Alzado posterior'],
+];
 
 function polygonArea(points) {
   let area = 0;
@@ -47,14 +51,14 @@ function polygonIsSimple(points) {
   for (let i = 0; i < points.length; i += 1) {
     const a = points[i];
     const b = points[(i + 1) % points.length];
-    if (Math.hypot(a.x - b.x, a.y - b.y) < 0.5) return false;
+    if (Math.hypot(a.x - b.x, a.y - b.y) < 0.01) return false;
     for (let j = i + 1; j < points.length; j += 1) {
       const adjacent = j === i || j === (i + 1) % points.length || (j + 1) % points.length === i;
       if (adjacent) continue;
       if (segmentsIntersect(a, b, points[j], points[(j + 1) % points.length])) return false;
     }
   }
-  return polygonArea(points) >= 1;
+  return polygonArea(points) >= 0.01;
 }
 
 function injectStyle() {
@@ -68,7 +72,7 @@ function injectStyle() {
     .part-editor>footer{border-top:1px solid #465863;border-bottom:0}
     .part-editor h2{font-size:15px;margin:1px 0 0;font-weight:600}.part-editor header span{font-size:9px;letter-spacing:1.7px;color:#77b9f4}
     .part-editor button{border:1px solid #526878;background:#263844;color:#e9f2f7;min-height:30px;padding:0 14px;cursor:pointer}.part-editor button:hover{background:#31506a;border-color:#5ca7e8}.part-editor [data-create]{background:#2877b9;border-color:#52a8ec;font-weight:600}.part-editor [data-create]:disabled{opacity:.48;cursor:not-allowed}
-    .part-editor__body{min-height:0;display:grid;grid-template-columns:minmax(420px,1fr) 320px}
+    .part-editor__body{min-height:0;display:grid;grid-template-columns:minmax(420px,1fr) 340px}
     .part-editor__drawing{position:relative;min-width:0;min-height:0;display:grid;place-items:center;overflow:hidden;background:#dce4e8;padding:12px}
     .part-editor canvas{display:block;width:100%;height:100%;background:#eef3f5;box-shadow:inset 0 0 0 1px #7d919e;cursor:crosshair;touch-action:none}
     .part-editor__hint{position:absolute;left:22px;bottom:20px;max-width:calc(100% - 44px);background:#12202de6;color:#dcecff;border:1px solid #547995;padding:7px 10px;font:10px/1.35 'Segoe UI',sans-serif;pointer-events:none}
@@ -78,6 +82,7 @@ function injectStyle() {
     .part-editor__tools label{display:grid;grid-template-columns:1fr 128px;align-items:center;gap:10px;margin:7px 0;font-size:11px}
     .part-editor__tools input,.part-editor__tools select{width:100%;height:28px;box-sizing:border-box;background:#111c24;border:1px solid #415462;color:#eaf3f8;padding:0 7px}
     .part-editor__plane{padding:9px 10px;border:1px solid #385469;background:#12202a;color:#c9d9e2;font-size:10px;line-height:1.45}
+    .part-editor__coords{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:8px 0}.part-editor__coords label{display:grid;grid-template-columns:24px 1fr;gap:6px;align-items:center;margin:0}.part-editor__coord-actions{display:flex;gap:6px}.part-editor__coord-actions button{flex:1;padding:0 6px;font-size:10px}.part-editor__tools [data-update-coordinate]:disabled{opacity:.42;cursor:not-allowed}.part-editor__tools .part-editor__snap-toggle{grid-template-columns:1fr 24px}.part-editor__tools .part-editor__snap-toggle input{width:16px;height:16px;justify-self:center}
     .part-editor__stats{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:13px}.part-editor__stat{padding:9px;background:#12202a;border:1px solid #344b5d}.part-editor__stat b{display:block;color:#fff;font:600 13px 'JetBrains Mono',monospace}.part-editor__stat span{font-size:9px;color:#89a1b2}
     .part-editor__toolbar{display:flex;gap:6px}.part-editor__status{font:10px 'JetBrains Mono',monospace;color:#9cb1be}
     @media(max-width:760px){.part-editor{width:100vw;height:100dvh}.part-editor__body{grid-template-columns:1fr;grid-template-rows:minmax(330px,55vh) auto}.part-editor__tools{border-left:0;border-top:1px solid #52616d}.part-editor>footer{gap:8px}.part-editor__status{display:none}}
@@ -95,9 +100,20 @@ export class CustomPartEditor {
   }
 
   open(selected = null) {
-    document.querySelector('.part-editor-overlay')?.remove();
-    this.sceneManager.useOrthographicProjection?.();
-    if (selected) this.sceneManager.focusOnObject?.(selected);
+    document.querySelector('.part-editor-overlay')?._closePartEditor?.();
+    const cameraState = this._captureCameraState();
+    this._stopCameraMotion();
+    const activeView = ORTHO_VIEWS.some(([view]) => view === this.sceneManager.activeView)
+      ? this.sceneManager.activeView
+      : 'front';
+    this.sceneManager.setCameraView(activeView);
+    if (selected) this.sceneManager.focusOnObject?.(selected, { animate: false, padding: 1.65 });
+    else {
+      this.sceneManager.camera.position.add(cameraState.target);
+      this.sceneManager.orbitControls.target.copy(cameraState.target);
+      this.sceneManager.camera.updateMatrixWorld(true);
+      this.sceneManager.orbitControls.update();
+    }
 
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay part-editor-overlay';
@@ -111,10 +127,11 @@ export class CustomPartEditor {
           <div class="part-editor__drawing">
             <canvas width="1200" height="800" aria-label="Dibujar el contorno de una pieza sobre la vista ortográfica del modelo"></canvas>
             <div class="part-editor__viewtools" aria-label="Navegación del plano"><button type="button" data-zoom-out title="Alejar">−</button><button type="button" data-zoom-in title="Acercar">+</button><button type="button" data-fit title="Encuadrar la pieza seleccionada">Encuadrar</button></div>
-            <div class="part-editor__hint">Clic: vértice · Shift: ortogonal · Doble clic o Enter: cerrar · Backspace: deshacer · Esc: salir · Captura a geometría visible y rejilla en mm</div>
+            <div class="part-editor__hint">Clic: punto con captura a geometría · doble clic/Enter: cerrar · selecciona un vértice para editarlo · rueda: zoom · botón central: desplazar</div>
           </div>
           <aside class="part-editor__tools">
             <h3>Plano de trabajo</h3>
+            <label>Vista ortogonal<select data-work-view>${ORTHO_VIEWS.map(([value, label]) => `<option value="${value}" ${value === activeView ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
             <div class="part-editor__plane" data-plane></div>
             <h3>Clasificación BIM</h3>
             <label>Condición<select name="role">${TYPES.map(([value, label]) => `<option value="${value}">${label}</option>`).join('')}</select></label>
@@ -122,12 +139,16 @@ export class CustomPartEditor {
             <h3>Geometría y acabado</h3>
             <label>Espesor (mm)<input name="thickness" type="number" min="1" max="200" step="1" value="12"></label>
             <label>Desfase del plano (mm)<input name="planeOffset" type="number" step="1" value="0"></label>
-            <label>Snap (mm)<select name="snap"><option>1</option><option>2</option><option selected>5</option><option>10</option><option>25</option><option>50</option></select></label>
+            <label>Rejilla (mm)<select name="snap"><option value="0">Libre</option><option value="1" selected>1</option><option value="2">2</option><option value="5">5</option><option value="10">10</option><option value="25">25</option><option value="50">50</option></select></label>
+            <label class="part-editor__snap-toggle"><span>Captura a vértices y aristas</span><input name="geometrySnap" type="checkbox" checked></label>
             <label>Bisel (mm)<input name="bevel" type="number" min="0" max="20" step="0.5" value="0"></label>
             <label>Radio esquinas (mm)<input name="radius" type="number" min="0" max="100" step="1" value="0"></label>
             <h3>Material</h3>
             <label>Acero<select name="grade">${GRADES.map((grade) => `<option>${grade}</option>`).join('')}</select></label>
             <label>Color<input name="color" type="color" value="#586672"></label>
+            <h3>Coordenadas exactas (mm)</h3>
+            <div class="part-editor__coords"><label>U<input data-coordinate-u type="number" step="0.01" value="0"></label><label>V<input data-coordinate-v type="number" step="0.01" value="0"></label></div>
+            <div class="part-editor__coord-actions"><button type="button" data-add-coordinate>Añadir punto exacto</button><button type="button" data-update-coordinate disabled>Actualizar vértice</button></div>
             <div class="part-editor__stats">
               <div class="part-editor__stat"><b data-points>0</b><span>VÉRTICES</span></div>
               <div class="part-editor__stat"><b data-area>0 mm²</b><span>ÁREA</span></div>
@@ -150,10 +171,52 @@ export class CustomPartEditor {
       </section>`;
     document.body.appendChild(overlay);
     overlay.tabIndex = -1;
-    this._wire(overlay, selected);
+    this._wire(overlay, selected, cameraState);
   }
 
-  _wire(overlay, selected) {
+  _captureCameraState() {
+    const scene = this.sceneManager;
+    const camera = scene.camera;
+    return {
+      camera, mode: scene._cameraMode, activeView: scene.activeView,
+      position: camera.position.clone(), quaternion: camera.quaternion.clone(), up: camera.up.clone(),
+      zoom: camera.zoom, target: scene.orbitControls.target.clone(),
+      enableRotate: scene.orbitControls.enableRotate,
+    };
+  }
+
+  _stopCameraMotion() {
+    const scene = this.sceneManager;
+    if (scene._cameraAnim) cancelAnimationFrame(scene._cameraAnim);
+    if (scene._focusAnimFrame) cancelAnimationFrame(scene._focusAnimFrame);
+    scene._cameraAnim = null;
+    scene._focusAnimFrame = null;
+  }
+
+  _restoreCameraState(state) {
+    if (!state) return;
+    const scene = this.sceneManager;
+    this._stopCameraMotion();
+    scene._cameraMode = state.mode;
+    scene.camera = state.camera;
+    scene.camera.position.copy(state.position);
+    scene.camera.quaternion.copy(state.quaternion);
+    scene.camera.up.copy(state.up);
+    if (Number.isFinite(state.zoom)) scene.camera.zoom = state.zoom;
+    scene.camera.updateProjectionMatrix();
+    scene.camera.updateMatrixWorld(true);
+    scene.orbitControls.object = scene.camera;
+    scene.orbitControls.target.copy(state.target);
+    scene.orbitControls.enableRotate = state.enableRotate;
+    scene.orbitControls.update();
+    if (scene.transformControls) scene.transformControls.camera = scene.camera;
+    scene.activeView = state.activeView;
+    scene.gridManager?.updateForCamera(scene.camera, scene.renderer.domElement.clientHeight, state.target);
+    scene._updateZoomLabel?.();
+    scene._notifyCameraViewChanged?.();
+  }
+
+  _wire(overlay, selected, cameraState) {
     const canvas = overlay.querySelector('canvas');
     const context = canvas.getContext('2d');
     const points = [];
@@ -161,12 +224,12 @@ export class CustomPartEditor {
     let pointer = null;
     const scene = this.sceneManager;
     const rendererCanvas = scene.renderer.domElement;
-    const camera = scene.camera;
+    let camera = scene.camera;
     const raycaster = new THREE.Raycaster();
     const planeOrigin = new THREE.Vector3();
-    const planeRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion).normalize();
-    const planeUp = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion).normalize();
-    const planeNormal = new THREE.Vector3().crossVectors(planeRight, planeUp).normalize();
+    const planeRight = new THREE.Vector3();
+    const planeUp = new THREE.Vector3();
+    const planeNormal = new THREE.Vector3();
     const workPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(planeNormal, planeOrigin);
 
     if (selected?.mesh) {
@@ -183,13 +246,13 @@ export class CustomPartEditor {
     sceneSnapshot.width = rendererCanvas.width;
     sceneSnapshot.height = rendererCanvas.height;
     const snapshotContext = sceneSnapshot.getContext('2d');
-    const aspectLabel = Math.abs(planeNormal.y) > 0.9 ? 'Planta' : Math.abs(planeNormal.x) > 0.9 ? 'Alzado lateral' : Math.abs(planeNormal.z) > 0.9 ? 'Alzado / sección' : 'Vista ortográfica actual';
-    overlay.querySelector('[data-plane]').textContent = selected
-      ? `${aspectLabel} sobre «${selected.designation || selected.type}» · origen en el centro geométrico · espesor normal al plano · proyección ortográfica.`
-      : `${aspectLabel} · plano por el centro de la vista actual · selecciona una pieza antes de abrir para usarla como referencia.`;
+    let aspectLabel = '';
+    overlay.querySelector('[data-plane]').textContent = '';
 
     const read = (name) => overlay.querySelector(`[name="${name}"]`);
     const basePlaneOrigin = planeOrigin.clone();
+    let selectedPointIndex = -1;
+    const featureCache = new WeakMap();
     const fitImageRect = () => {
       const scale = Math.min(canvas.width / rendererCanvas.width, canvas.height / rendererCanvas.height);
       const width = rendererCanvas.width * scale;
@@ -217,6 +280,23 @@ export class CustomPartEditor {
         depth: projected.z,
       };
     };
+    const syncPlaneBasis = () => {
+      camera = scene.camera;
+      camera.updateMatrixWorld(true);
+      planeRight.set(1, 0, 0).applyQuaternion(camera.quaternion).normalize();
+      planeUp.set(0, 1, 0).applyQuaternion(camera.quaternion).normalize();
+      planeNormal.crossVectors(planeRight, planeUp).normalize();
+      if (selected?.mesh) {
+        selected.mesh.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(selected.mesh);
+        if (!box.isEmpty()) box.getCenter(planeOrigin);
+      } else planeOrigin.copy(scene.orbitControls.target);
+      basePlaneOrigin.copy(planeOrigin);
+      aspectLabel = overlay.querySelector('[data-work-view]').selectedOptions[0]?.textContent || 'Vista ortogonal';
+      const reference = selected ? ` · referencia: ${selected.designation || selected.type}` : ' · sin elemento de referencia';
+      overlay.querySelector('[data-plane]').textContent = `${aspectLabel}${reference} · origen en el centro de la referencia · espesor perpendicular al plano · escala real en mm.`;
+      workPlane.setFromNormalAndCoplanarPoint(planeNormal, planeOrigin);
+    };
     const pointWorld = (point) => planeOrigin.clone()
       .addScaledVector(planeRight, point.x / 1000)
       .addScaledVector(planeUp, point.y / 1000);
@@ -226,37 +306,62 @@ export class CustomPartEditor {
     const collectSnapGeometry = () => {
       snapTargets.length = 0;
       projectedEdges.length = 0;
-      if (!selected?.mesh) return;
-      selected.mesh.updateMatrixWorld(true);
-      selected.mesh.traverse((child) => {
-        if (!child.isMesh || !child.geometry?.attributes?.position) return;
-        const edges = new THREE.EdgesGeometry(child.geometry, 12);
-        const positions = edges.attributes.position;
-        const stride = Math.max(1, Math.ceil(positions.count / 24000));
-        const projected = [];
-        for (let i = 0; i + 1 < positions.count; i += 2 * stride) {
-          const start = new THREE.Vector3().fromBufferAttribute(positions, i).applyMatrix4(child.matrixWorld);
-          const endIndex = Math.min(i + 1, positions.count - 1);
-          const end = new THREE.Vector3().fromBufferAttribute(positions, endIndex).applyMatrix4(child.matrixWorld);
+      const roots = selected?.mesh
+        ? [selected.mesh]
+        : scene.objects.filter((object) => object?.mesh).map((object) => object.mesh);
+      const visible = (object) => {
+        for (let current = object; current; current = current.parent) if (!current.visible) return false;
+        return true;
+      };
+      const seenVertices = new Set();
+      roots.forEach((root) => {
+        root.updateWorldMatrix(true, true);
+        root.traverse((child) => {
+        if (!child.isMesh || !child.geometry?.attributes?.position || !visible(child)) return;
+        let features = featureCache.get(child.geometry);
+        if (!features) {
+          const edgeGeometry = new THREE.EdgesGeometry(child.geometry, 12);
+          const positions = edgeGeometry.attributes.position;
+          const edges = [];
+          const vertices = new Map();
+          if (positions) {
+            for (let i = 0; i + 1 < positions.count; i += 2) {
+              const a = new THREE.Vector3().fromBufferAttribute(positions, i);
+              const b = new THREE.Vector3().fromBufferAttribute(positions, i + 1);
+              if (a.distanceToSquared(b) < 1e-16) continue;
+              edges.push([a, b]);
+              for (const point of [a, b]) {
+                const key = `${Math.round(point.x * 1e6)}:${Math.round(point.y * 1e6)}:${Math.round(point.z * 1e6)}`;
+                if (!vertices.has(key)) vertices.set(key, point.clone());
+              }
+            }
+          }
+          edgeGeometry.dispose();
+          features = { edges, vertices: [...vertices.values()] };
+          featureCache.set(child.geometry, features);
+        }
+        const world = (point) => point.clone().applyMatrix4(child.matrixWorld);
+        for (const [localA, localB] of features.edges) {
+          const start = world(localA);
+          const end = world(localB);
           const a = screenForWorld(start);
           const b = screenForWorld(end);
           if (a.depth < -1 || a.depth > 1 || b.depth < -1 || b.depth > 1) continue;
           const aUV = { x: start.clone().sub(planeOrigin).dot(planeRight) * 1000, y: start.clone().sub(planeOrigin).dot(planeUp) * 1000 };
           const bUV = { x: end.clone().sub(planeOrigin).dot(planeRight) * 1000, y: end.clone().sub(planeOrigin).dot(planeUp) * 1000 };
           projectedEdges.push({ a, b, aUV, bUV, aWorld: start, bWorld: end });
-          projected.push(start, end);
         }
-        const seen = new Set();
-        for (const vertex of projected) {
-          const key = `${Math.round(vertex.x * 10000)}:${Math.round(vertex.y * 10000)}:${Math.round(vertex.z * 10000)}`;
-          if (seen.has(key)) continue;
-          seen.add(key);
+        for (const localVertex of features.vertices) {
+          const vertex = world(localVertex);
           const screen = screenForWorld(vertex);
           if (screen.depth < -1 || screen.depth > 1) continue;
+          const key = `${Math.round(screen.x * 100)}:${Math.round(screen.y * 100)}`;
+          if (seenVertices.has(key)) continue;
+          seenVertices.add(key);
           const delta = vertex.clone().sub(planeOrigin);
-          snapTargets.push({ screen, uv: { x: delta.dot(planeRight) * 1000, y: delta.dot(planeUp) * 1000 }, world: vertex });
+          snapTargets.push({ screen, uv: { x: delta.dot(planeRight) * 1000, y: delta.dot(planeUp) * 1000 }, world: vertex, kind: 'VÉRTICE' });
         }
-        edges.dispose();
+        });
       });
     };
     const updatePlaneOffset = () => {
@@ -271,6 +376,10 @@ export class CustomPartEditor {
       const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       canvas.width = Math.max(1, Math.round(rect.width * dpr));
       canvas.height = Math.max(1, Math.round(rect.height * dpr));
+      if (sceneSnapshot.width !== rendererCanvas.width || sceneSnapshot.height !== rendererCanvas.height) {
+        sceneSnapshot.width = rendererCanvas.width;
+        sceneSnapshot.height = rendererCanvas.height;
+      }
       fitImageRect();
     };
     const refreshImageRect = () => {
@@ -296,7 +405,8 @@ export class CustomPartEditor {
       return { minX, minY, width: maxX - minX, height: maxY - minY, centerX: (minX + maxX) / 2, centerY: (minY + maxY) / 2 };
     };
     const drawGrid = () => {
-      const snap = Math.max(1, Number(read('snap').value) || 5);
+      const selectedStep = Number(read('snap').value);
+      const snap = selectedStep > 0 ? selectedStep : 10;
       const origin = screenForWorld(planeOrigin);
       const oneMm = screenForWorld(planeOrigin.clone().addScaledVector(planeRight, 0.001));
       const pxPerMm = Math.hypot(oneMm.x - origin.x, oneMm.y - origin.y);
@@ -328,13 +438,15 @@ export class CustomPartEditor {
       const box = bounds();
       const valid = closed && polygonIsSimple(points) && Number(read('thickness').value) > 0;
       overlay.querySelector('[data-points]').textContent = String(points.length);
-      overlay.querySelector('[data-width]').textContent = `${box.width.toFixed(1)} mm`;
-      overlay.querySelector('[data-height]').textContent = `${box.height.toFixed(1)} mm`;
-      overlay.querySelector('[data-area]').textContent = `${polygonArea(points).toFixed(1)} mm²`;
+      overlay.querySelector('[data-width]').textContent = `${box.width.toFixed(2)} mm`;
+      overlay.querySelector('[data-height]').textContent = `${box.height.toFixed(2)} mm`;
+      overlay.querySelector('[data-area]').textContent = `${polygonArea(points).toFixed(2)} mm²`;
       overlay.querySelector('[data-create]').disabled = !valid;
+      overlay.querySelector('[data-update-coordinate]').disabled = selectedPointIndex < 0 || selectedPointIndex >= points.length;
+      overlay.querySelector('[data-work-view]').disabled = points.length > 0;
       overlay.querySelector('[data-status]').textContent = validationMessage || (closed
-        ? valid ? 'Contorno válido. Puede crear la pieza.' : 'Contorno inválido: revise cruces, lados menores de 0,5 mm y área.'
-        : `${points.length} vértices · cierre en el primer punto o pulse Enter.`);
+        ? valid ? 'Contorno válido. Puede crear la pieza.' : 'Contorno inválido: revise cruces, lados menores de 0,01 mm y área.'
+        : `${points.length} vértices · cierre en el primer punto o pulse Enter. ${selectedPointIndex >= 0 ? `Vértice ${selectedPointIndex + 1} seleccionado.` : ''}`);
     };
     const draw = () => {
       refreshImageRect();
@@ -362,8 +474,8 @@ export class CustomPartEditor {
         context.strokeStyle = '#0879b7'; context.lineWidth = Math.max(2, canvas.width / 700); context.stroke();
         points.forEach((point, index) => {
           const p = pointCanvas(point);
-          context.beginPath(); context.arc(p.x, p.y, index === 0 ? 6 : 4.5, 0, Math.PI * 2);
-          context.fillStyle = index === 0 ? '#ff9f2e' : '#f7fbff'; context.fill();
+          context.beginPath(); context.arc(p.x, p.y, index === selectedPointIndex ? 8 : index === 0 ? 6 : 4.5, 0, Math.PI * 2);
+          context.fillStyle = index === selectedPointIndex ? '#37b6ff' : index === 0 ? '#ff9f2e' : '#f7fbff'; context.fill();
           context.strokeStyle = '#185a86'; context.lineWidth = 2; context.stroke();
         });
       }
@@ -383,61 +495,84 @@ export class CustomPartEditor {
       if (!hit) return null;
       const delta = hit.sub(planeOrigin);
       let point = { x: delta.dot(planeRight) * 1000, y: delta.dot(planeUp) * 1000 };
-      let snapKind = 'REJILLA';
+      let snapKind = 'LIBRE';
       const rect = canvas.getBoundingClientRect();
       const mouseX = (event.clientX - rect.left) / rect.width * canvas.width;
       const mouseY = (event.clientY - rect.top) / rect.height * canvas.height;
+      const pixelScale = canvas.width / Math.max(1, rect.width);
       let closest = null;
-      let closestDistance = 9 * (canvas.width / Math.max(1, rect.width));
-      snapTargets.forEach((target) => {
-        const distance = Math.hypot(target.screen.x - mouseX, target.screen.y - mouseY);
-        if (distance < closestDistance) { closest = target; closestDistance = distance; }
-      });
-      projectedEdges.forEach((edge) => {
-        const dx = edge.b.x - edge.a.x; const dy = edge.b.y - edge.a.y;
-        const length2 = dx * dx + dy * dy;
-        if (length2 < 1e-8) return;
-        const t = THREE.MathUtils.clamp(((mouseX - edge.a.x) * dx + (mouseY - edge.a.y) * dy) / length2, 0, 1);
-        const sx = edge.a.x + dx * t; const sy = edge.a.y + dy * t;
-        const distance = Math.hypot(sx - mouseX, sy - mouseY);
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closest = {
-            uv: { x: edge.aUV.x + (edge.bUV.x - edge.aUV.x) * t, y: edge.aUV.y + (edge.bUV.y - edge.aUV.y) * t },
-            screen: { x: sx, y: sy },
-            world: edge.aWorld.clone().lerp(edge.bWorld, t),
-          };
+      let closestDistance = 12 * pixelScale;
+      if (read('geometrySnap').checked) {
+        for (const target of snapTargets) {
+          const distance = Math.hypot(target.screen.x - mouseX, target.screen.y - mouseY);
+          if (distance < closestDistance) {
+            closest = { ...target, distance };
+            closestDistance = distance;
+          }
         }
-      });
-      if (closest) {
-        const sceneObjects = scene.objects.filter((object) => object?.mesh).map((object) => object.mesh);
-        raycaster.setFromCamera(ndc, camera);
-        const occluders = raycaster.intersectObjects(sceneObjects, true);
-        const candidateWorld = closest.world || planeOrigin.clone().addScaledVector(planeRight, closest.uv.x / 1000).addScaledVector(planeUp, closest.uv.y / 1000);
-        const candidateDistance = raycaster.ray.origin.distanceTo(candidateWorld);
-        const hidden = occluders.length && occluders[0].distance < candidateDistance - 0.002;
-        if (!hidden) { point = { ...closest.uv }; snapKind = 'GEOMETRÍA'; }
+        for (const edge of projectedEdges) {
+          const dx = edge.b.x - edge.a.x; const dy = edge.b.y - edge.a.y;
+          const length2 = dx * dx + dy * dy;
+          if (length2 < 1e-8) continue;
+          const t = THREE.MathUtils.clamp(((mouseX - edge.a.x) * dx + (mouseY - edge.a.y) * dy) / length2, 0, 1);
+          const sx = edge.a.x + dx * t; const sy = edge.a.y + dy * t;
+          const distance = Math.hypot(sx - mouseX, sy - mouseY);
+          const keepVertex = closest?.kind === 'VÉRTICE' && distance > closestDistance - 3 * pixelScale;
+          if (distance < closestDistance && !keepVertex) {
+            closestDistance = distance;
+            closest = {
+              uv: { x: edge.aUV.x + (edge.bUV.x - edge.aUV.x) * t, y: edge.aUV.y + (edge.bUV.y - edge.aUV.y) * t },
+              kind: 'ARISTA',
+            };
+          }
+        }
       }
-      if (snapKind === 'REJILLA') {
-        const step = Math.max(1, Number(read('snap').value) || 5);
-        point.x = Math.round(point.x / step) * step;
-        point.y = Math.round(point.y / step) * step;
+      if (closest) {
+        point = { ...closest.uv };
+        snapKind = closest.kind;
+      } else {
+        const step = Number(read('snap').value);
+        if (step > 0) {
+          point.x = Math.round(point.x / step) * step;
+          point.y = Math.round(point.y / step) * step;
+          snapKind = 'REJILLA';
+        }
       }
       if (constrain && event.shiftKey && points.length) {
         const previous = points.at(-1);
         if (Math.abs(point.x - previous.x) >= Math.abs(point.y - previous.y)) point.y = previous.y;
         else point.x = previous.x;
       }
-      overlay.querySelector('[data-cursor]').textContent = `${point.x.toFixed(1)} / ${point.y.toFixed(1)}`;
+      overlay.querySelector('[data-cursor]').textContent = `${point.x.toFixed(2)} / ${point.y.toFixed(2)}`;
       overlay.querySelector('[data-snap]').textContent = snapKind;
       return point;
     };
     const closePolygon = () => {
       if (points.length < 3) return;
+      if (points.length > 3 && Math.hypot(points[0].x - points.at(-1).x, points[0].y - points.at(-1).y) < 0.01) points.pop();
       closed = true;
       const valid = polygonIsSimple(points);
       draw();
-      if (!valid) updateStats('El contorno se cruza, tiene lados demasiado cortos o área insuficiente; deshaga o ajuste puntos.');
+      if (!valid) updateStats('El contorno se cruza, tiene lados menores de 0,01 mm o área insuficiente; ajuste los puntos.');
+    };
+
+    const setCoordinateFields = (point) => {
+      overlay.querySelector('[data-coordinate-u]').value = Number(point.x).toFixed(2);
+      overlay.querySelector('[data-coordinate-v]').value = Number(point.y).toFixed(2);
+    };
+    const pointAtScreen = (clientX, clientY, toleranceCss = 12) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = (clientX - rect.left) / rect.width * canvas.width;
+      const y = (clientY - rect.top) / rect.height * canvas.height;
+      const limit = toleranceCss * canvas.width / Math.max(1, rect.width);
+      let nearest = -1;
+      let distance = limit;
+      points.forEach((point, index) => {
+        const screen = pointCanvas(point);
+        const candidate = Math.hypot(screen.x - x, screen.y - y);
+        if (candidate < distance) { nearest = index; distance = candidate; }
+      });
+      return nearest;
     };
 
     const hitPlane = (ndc) => {
@@ -503,45 +638,106 @@ export class CustomPartEditor {
     rectObserver.observe(canvas);
     overlay._disposePartEditor = () => rectObserver.disconnect();
     canvas.addEventListener('pointermove', (event) => {
-      if (closed) return;
       const point = fromEvent(event);
       pointer = point ? pointCanvas(point) : null;
+      if (point && selectedPointIndex < 0) setCoordinateFields(point);
       draw();
     });
     canvas.addEventListener('pointerleave', () => { pointer = null; draw(); });
     canvas.addEventListener('click', (event) => {
       if (suppressClick) { suppressClick = false; return; }
-      if (closed) return;
-      const point = fromEvent(event);
-      if (!point) return;
+      if (event.detail > 1) return;
       if (points.length >= 3) {
-        const firstScreen = pointCanvas(points[0]);
         const rect = canvas.getBoundingClientRect();
         const x = (event.clientX - rect.left) / rect.width * canvas.width;
         const y = (event.clientY - rect.top) / rect.height * canvas.height;
-        if (Math.hypot(x - firstScreen.x, y - firstScreen.y) < 10 * canvas.width / Math.max(1, rect.width)) { closePolygon(); return; }
+        const firstScreen = pointCanvas(points[0]);
+        const closeTolerance = 11 * canvas.width / Math.max(1, rect.width);
+        if (!closed && Math.hypot(x - firstScreen.x, y - firstScreen.y) <= closeTolerance) { closePolygon(); return; }
       }
+      const existingPoint = pointAtScreen(event.clientX, event.clientY);
+      if (existingPoint >= 0) {
+        selectedPointIndex = existingPoint;
+        setCoordinateFields(points[existingPoint]);
+        draw();
+        return;
+      }
+      if (closed) { selectedPointIndex = -1; draw(); return; }
+      const point = fromEvent(event);
+      if (!point) return;
       const prior = points.at(-1);
-      if (prior && Math.hypot(prior.x - point.x, prior.y - point.y) < 0.5) return;
+      if (prior && Math.hypot(prior.x - point.x, prior.y - point.y) < 0.01) return;
       points.push(point);
+      selectedPointIndex = -1;
       draw();
     });
     canvas.addEventListener('dblclick', (event) => { event.preventDefault(); closePolygon(); });
     read('snap').addEventListener('change', () => draw());
+    read('geometrySnap').addEventListener('change', () => draw());
     read('planeOffset').addEventListener('change', updatePlaneOffset);
-    overlay.querySelector('[data-undo]').addEventListener('click', () => { if (closed) closed = false; else points.pop(); draw(); });
-    overlay.querySelector('[data-clear]').addEventListener('click', () => { points.length = 0; closed = false; pointer = null; draw(); });
+    overlay.querySelector('[data-work-view]').addEventListener('change', (event) => {
+      if (points.length) { event.target.value = scene.activeView; return; }
+      this._stopCameraMotion();
+      scene.setCameraView(event.target.value);
+      camera = scene.camera;
+      if (selected) scene.focusOnObject(selected, { animate: false, padding: 1.65 });
+      else {
+        camera.position.add(cameraState.target);
+        scene.orbitControls.target.copy(cameraState.target);
+        camera.updateMatrixWorld(true);
+        scene.orbitControls.update();
+      }
+      syncPlaneBasis();
+      updatePlaneOffset();
+      refreshSceneSnapshot();
+    });
+    overlay.querySelector('[data-add-coordinate]').addEventListener('click', () => {
+      if (closed) { updateStats('El contorno está cerrado; abra con Deshacer punto antes de añadir otro vértice.'); return; }
+      const x = Number(overlay.querySelector('[data-coordinate-u]').value);
+      const y = Number(overlay.querySelector('[data-coordinate-v]').value);
+      if (!Number.isFinite(x) || !Number.isFinite(y)
+        || !overlay.querySelector('[data-coordinate-u]').value.trim()
+        || !overlay.querySelector('[data-coordinate-v]').value.trim()) return;
+      points.push({ x, y });
+      selectedPointIndex = -1;
+      draw();
+    });
+    overlay.querySelector('[data-update-coordinate]').addEventListener('click', () => {
+      if (selectedPointIndex < 0 || selectedPointIndex >= points.length) return;
+      const x = Number(overlay.querySelector('[data-coordinate-u]').value);
+      const y = Number(overlay.querySelector('[data-coordinate-v]').value);
+      if (!Number.isFinite(x) || !Number.isFinite(y)
+        || !overlay.querySelector('[data-coordinate-u]').value.trim()
+        || !overlay.querySelector('[data-coordinate-v]').value.trim()) return;
+      points[selectedPointIndex] = { x, y };
+      draw();
+      if (closed && !polygonIsSimple(points)) updateStats('El vértice se actualizó, pero el contorno tiene cruces o área insuficiente.');
+    });
+    overlay.querySelector('[data-undo]').addEventListener('click', () => {
+      if (closed) closed = false;
+      else if (selectedPointIndex >= 0) points.splice(selectedPointIndex, 1);
+      else points.pop();
+      selectedPointIndex = -1;
+      draw();
+    });
+    overlay.querySelector('[data-clear]').addEventListener('click', () => { points.length = 0; closed = false; selectedPointIndex = -1; pointer = null; draw(); });
     overlay.querySelector('[data-template]').addEventListener('click', () => {
       points.splice(0, points.length, { x: -200, y: -150 }, { x: 200, y: -150 }, { x: 0, y: 150 });
       closed = true; draw();
     });
 
-    const close = () => { overlay._disposePartEditor?.(); overlay.remove(); };
+    const close = () => {
+      if (!overlay.isConnected) return;
+      overlay._disposePartEditor?.();
+      overlay.remove();
+      this._restoreCameraState(cameraState);
+    };
+    overlay._closePartEditor = close;
     overlay.querySelectorAll('[data-close]').forEach((button) => button.addEventListener('click', close));
     overlay.addEventListener('click', (event) => { if (event.target === overlay) close(); });
     overlay.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') close();
-      if (event.key === 'Backspace' && !event.target.matches('input,select')) { event.preventDefault(); if (closed) closed = false; else points.pop(); draw(); }
+      if (event.key === 'Backspace' && !event.target.matches('input,select')) { event.preventDefault(); if (closed) closed = false; else if (selectedPointIndex >= 0) points.splice(selectedPointIndex, 1); else points.pop(); selectedPointIndex = -1; draw(); }
       if (event.key === 'Enter' && !event.target.matches('input,select,button')) { event.preventDefault(); closePolygon(); }
     });
     overlay.querySelector('[data-create]').addEventListener('click', () => {
@@ -577,11 +773,12 @@ export class CustomPartEditor {
       plate.mesh.updateMatrixWorld(true);
       plate._applyUserData?.();
       scene.addObject(plate);
+      close();
       this.onCreate(plate);
       this.toast(`${plate.designation} creada · ${box.width.toFixed(1)} × ${box.height.toFixed(1)} × ${thicknessMm} mm`);
-      close();
     });
 
+    syncPlaneBasis();
     setSnapshotDimensions();
     collectSnapGeometry();
     refreshSceneSnapshot();

@@ -49,7 +49,7 @@ let gizmoSpace = 'world';
 let _undoStack = [];
 let _undoPointer = -1;
 let _currentProjectName = 'Sin título';
-let _appSettings = { units: 'metric', interfaceTheme: 'light', themePreferenceVersion: 2, snapPrecision: '1', autosave: true, reducedMotion: false };
+let _appSettings = { units: 'metric', interfaceTheme: 'light', themePreferenceVersion: 3, snapPrecision: '1', autosave: true, reducedMotion: false };
 const RECENTS_KEY = 'estructuras-pro:recent';
 const VIEW_SLOTS_KEY = 'estructuras-pro:views';
 
@@ -181,11 +181,11 @@ function initApp(launchContext = {}) {
     document.documentElement.dataset.units = _appSettings.units || 'metric';
     document.documentElement.classList.toggle('reduced-motion', !!_appSettings.reducedMotion);
     snapManager.gridSnap = Math.max(.001, Number(_appSettings.snapPrecision || 1) / 1000);
-    const useDark = _appSettings.interfaceTheme === 'system'
-      ? window.matchMedia('(prefers-color-scheme: dark)').matches
-      : _appSettings.interfaceTheme !== 'light';
-    header.setTheme(useDark);
   }
+  const useDark = _appSettings.interfaceTheme === 'system'
+    ? window.matchMedia('(prefers-color-scheme: dark)').matches
+    : _appSettings.interfaceTheme !== 'light';
+  header.setTheme(useDark);
   if (launchContext?.project) _deserializeScene(launchContext.project);
   _undoStack = [captureState()];
   _undoPointer = 0;
@@ -382,9 +382,7 @@ function setVisualMode(mode) {
   visualMode = mode;
   sceneManager.setVisualMode(mode);
   ribbon.setActiveModeButton(mode);
-  const badge = document.getElementById('viewport-mode-badge');
   const labels = { clay:'TECHNICAL CLAY', pbr:'PBR REALISTIC', wire:'WIREFRAME', xray:'X-RAY' };
-  if (badge) badge.textContent = labels[mode] || mode.toUpperCase();
   showToast(`Modo: ${labels[mode] || mode}`);
 }
 
@@ -516,11 +514,6 @@ function wireViewCube() {
     }
   }
 
-  const homeBtn = document.getElementById('nav-cube-home');
-  homeBtn?.addEventListener('click', () => {
-    sceneManager.fitAll?.();
-    showToast('Fit All');
-  });
 }
 
 // ─── RIBBON ────────────────────────────────────────────────────
@@ -643,7 +636,6 @@ function wireSidebar() {
     const object = sceneManager.objects.find(item => item.id === id);
     if (object) selectAndShow(object);
   });
-  sidebar.on('open-structure-tab', () => document.querySelector('.ribbon-tab[data-tab="estructura"]')?.click());
 }
 
 // ─── HEADER ───────────────────────────────────────────────────

@@ -34,16 +34,16 @@ export class GridManager {
     // Fine grid: divisions represent real millimetres (not arbitrary metres).
     const minorDivisions = Math.max(1, Math.round(size / this.gridStep));
     const majorDivisions = Math.max(1, Math.round(size / (this.gridStep * 10)));
-    const minorGrid = new THREE.GridHelper(size, minorDivisions, 0x778894, 0xa8b4bc);
+    const minorGrid = new THREE.GridHelper(size, minorDivisions, 0x9aabba, 0xc1ccd4);
     minorGrid.material.transparent = true;
-    minorGrid.material.opacity = 0.34;
+    minorGrid.material.opacity = 0.52;
     minorGrid.position.y = 0;
     this.gridGroup.add(minorGrid);
 
     // Major grid — slightly more visible
-    const majorGrid = new THREE.GridHelper(size, majorDivisions, 0x5b7181, 0x82939e);
+    const majorGrid = new THREE.GridHelper(size, majorDivisions, 0x8298a8, 0xa9b8c2);
     majorGrid.material.transparent = true;
-    majorGrid.material.opacity = 0.46;
+    majorGrid.material.opacity = 0.62;
     majorGrid.position.y = 0.001;
     this.gridGroup.add(majorGrid);
 

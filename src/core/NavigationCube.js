@@ -165,11 +165,6 @@ export class NavigationCube {
     canvas.addEventListener('pointerleave', () => this._clearHover());
     canvas.addEventListener('click', (e) => this._onPointer(e, true));
 
-    // Home button (if present next to cube)
-    const home = document.getElementById('nav-cube-home');
-    if (home) {
-      home.addEventListener('click', () => this.sceneManager.fitAll());
-    }
   }
 
   _onPointer(event, commit) {
